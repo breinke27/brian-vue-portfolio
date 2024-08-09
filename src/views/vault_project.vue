@@ -1,4 +1,13 @@
+<script setup>
+import banner from './Banner.vue';
+</script>
+
 <template>
+  <div>
+    <banner />
+      <div class="flex flex-col items-center mt-20">
+      </div> 
+  </div>
     <div class="container mx-auto p-4">
       <h1 class="text-3xl font-bold mb-4">Data Scientist</h1>
       <h2 class="text-2xl font-semibold mb-2">Technologies Used:</h2>
@@ -7,12 +16,12 @@
         <li>SQL</li>
       </ul>
       <p class="text-lg mb-4">
-        This role utilizes a combination of modern technologies to create a robust and efficient solution. 
+        During my time as a data scientist with Vaulted, I was given the opportunity to help create and validate the accuracy of machine learning models. The models that we built were used for creating expected player and team statistics. Along with aiding in the building of these machine learning models using XGBoost, I was able to test their accuracy and reliability using statistical analysis in R for both MLB (American Professional) and NPB (Japanese Professional) data. Below you will see the testing of the swing decision and the ball in play outcome models. Also, attached are SQL querys I was tasked with creating to identify different key player statistics.
       </p>
       <div class="border border-gray-300 p-4 rounded">
         <h3 class="text-xl font-semibold mb-2">Code:</h3>
         <pre class="text-sm bg-gray-100 p-2 rounded">
-````
+```
 #Brian Reinke NPB SD Validation
 
 #Import Packages 
@@ -226,8 +235,236 @@ summary(EVlm)
 plot(npbBIP$exit_speed, npbBIP$xslg, main = "Linear Regression: exit_speed vs xslg",
      xlab = "xslg (Expected Slugging Percentage)", ylab = "exit_speed")
 abline(EVlm, col = "red")
-````
+```
         </pre>
+  <pre> 
+    -- 1 
+select
+    batter_id,
+    statcast.date,
+    game_id,
+    dense_rank() over (partition by statcast.year, batter_id order by statcast.date, at_bat_number) as pa_number_of_year,
+    dense_rank() over (partition by game_id order by at_bat_number) pa_number_of_game,
+    pa_result 
+from
+    analysis.mlb_statcast_pitches statcast
+where
+    batter_id = 660271
+and 
+	pa_result is not null
+and 
+	statcast.year = '2023'
+group by
+	batter_id, statcast.date, game_id, pa_result, pitch_result, statcast.year, at_bat_number
+order by
+    statcast.date, pa_number_of_game;
+
+-- 2
+-- Single Pitcher 
+with PitchUsage as (
+    select
+        pitcher_id,
+        year,
+        batter_side,
+        pitch_type,
+        count(*) as num_pitches,
+        ROUND(count(*) * 1.0 / (select count(*) from analysis.mlb_statcast_pitches where pitcher_id = 543037 and batter_side = 'R' and year = 2023), 3) as pitch_usage
+    from
+        analysis.mlb_statcast_pitches
+    where
+        pitcher_id = 543037
+        and batter_side = 'R'
+        and year = 2023
+    group by
+        pitcher_id, year, batter_side, pitch_type
+)
+select
+    pitcher_id,
+    year,
+    batter_side,
+    pitch_type,
+    num_pitches,
+    pitch_usage
+from
+    PitchUsage
+order by
+    pitch_type;
+--Multiple Pitchers
+--select distinct pitcher_id
+--from analysis.mlb_statcast_pitches
+--where year = 2022
+with PitchUsage as (
+    select
+        pitcher_id,
+        year,
+        batter_side,
+        pitch_type,
+        count(*) as num_pitches,
+        ROUND(count(*) * 1.0 / nullif(sum(count(*)) over (partition by pitcher_id, batter_side, year), 0), 3) as pitch_usage
+    from
+        analysis.mlb_statcast_pitches
+    where
+        (pitcher_id in (613534, 543037)) 
+        and (batter_side in ('R', 'L')) 
+        and year in (2023, 2022) 
+    group by
+        pitcher_id, year, batter_side, pitch_type
+)
+
+select
+    pitcher_id,
+    year,
+    batter_side,
+    pitch_type,
+    num_pitches,
+    pitch_usage
+from
+    PitchUsage
+order by
+    pitcher_id, year, batter_side, pitch_type;
+
+-- Matthews Answer 
+SELECT
+	stat.pitcher_id,
+	stat.year,
+	stat.batter_side,
+	stat.pitch_type,
+	round(COUNT(*) * 1.0 / tot_pitches, 3) AS usage
+FROM
+	analysis.mlb_statcast_pitches stat
+		inner join (
+			select pitcher_id
+				,year
+				,batter_side
+				,count(*) as tot_pitches
+			from analysis.mlb_statcast_pitches
+			group by pitcher_id
+				,year
+				,batter_side
+		) tots on tots.pitcher_id = stat.pitcher_id
+			and tots.year = stat.year
+			and tots.batter_side = stat.batter_side
+WHERE
+	(stat.pitcher_id IN (613534, 543037)) 
+	AND stat.year IN (2023, 2022) 
+GROUP BY
+	stat.pitcher_id, stat.year, stat.batter_side, stat.pitch_type, tots.tot_pitches
+ORDER BY
+    stat.pitcher_id, stat.year, stat.batter_side, stat.pitch_type;
+	
+-- 3 R and Python DONE
+
+-- 4 
+with RankedBIP as (
+    select
+        bip.trackman_id,
+        statcast.home_team,
+        bip.homerun_prob,
+        dense_rank() over (partition by statcast.home_team order by bip.homerun_prob desc) as hr_rank
+    from
+        analysis.mlb_bip_predictions bip
+    inner join
+        analysis.mlb_statcast_pitches statcast on statcast.trackman_id = bip.trackman_id
+    where
+		statcast.year = 2023
+	and 
+		bip.homerun_prob is not null
+)
+
+select
+    home_team,
+    max(case when hr_rank = 1 then homerun_prob end) as highest_hr_probability,
+    max(case when hr_rank = 2 then homerun_prob end) as second_highest_hr_probability,
+    max(case when hr_rank = 3 then homerun_prob end) as third_highest_hr_probability,
+    max(case when hr_rank = 4 then homerun_prob end) as fourth_highest_hr_probability,
+    max(case when hr_rank = 5 then homerun_prob end) as fifth_highest_hr_probability,
+    ROUND(avg(homerun_prob::NUMERIC), 2) as avg_hr_probability
+from
+    RankedBIP
+group by
+    home_team
+order by
+    avg_hr_probability desc;
+	
+-- 5
+with SwingMissProbability as (
+    select
+        statcast.trackman_id,
+        pq.swing_prob * pq.miss_prob as swing_miss_probability,
+        statcast.pitch_type,
+        statcast.rel_speed,
+        statcast.pitcher_throws,
+		statcast.balls,
+		statcast.strikes,
+		statcast.pitcher_id,
+		statcast.date
+    from analysis.mlb_statcast_pitches statcast
+    join analysis.mlb_pq pq on statcast.trackman_id = pq.trackman_id
+    where statcast.year = 2023 and statcast.pitch_type = 'SL'
+)
+select
+    trackman_id,
+    pitch_type,
+    rel_speed,
+    statcast.pitcher_throws,
+	swing_miss_probability,
+	pitcher.pitcher,
+	statcast.pitcher_id,
+	statcast.date
+from SwingMissProbability statcast
+inner join 
+	analysis.mlb_eligible_pitchers pitcher on pitcher.pitcher_id = statcast.pitcher_id
+order by swing_miss_probability desc
+limit 100;
+
+-- Query 1
+with SwingMissProbability as (
+    select
+        statcast.trackman_id,
+        pq.swing_prob * pq.miss_prob as swing_miss_probability,
+        statcast.pitch_type,
+        statcast.rel_speed,
+        statcast.pitcher_throws
+    from analysis.mlb_statcast_pitches statcast
+    join analysis.mlb_pq pq on statcast.trackman_id = pq.trackman_id
+    where statcast.year = 2023 and statcast.pitch_type = 'SL'
+	order by 
+		swing_miss_probability desc
+	Limit 100
+)
+select
+    pitcher_throws as handedness,
+    avg(rel_speed) as avg_velocity
+from SwingMissProbability
+group by pitcher_throws
+order by avg(rel_speed) desc
+
+-- Query 2
+with SwingMissProbability as (
+    select
+        statcast.trackman_id,
+        pq.swing_prob * pq.miss_prob as swing_miss_probability,
+        statcast.pitch_type,
+        statcast.rel_speed,
+        statcast.pitcher_throws,
+        statcast.balls,
+        statcast.strikes
+    from analysis.mlb_statcast_pitches statcast
+    join analysis.mlb_pq pq on statcast.trackman_id = pq.trackman_id
+    where statcast.year = 2023 and statcast.pitch_type = 'SL'
+	order by 
+		swing_miss_probability desc
+	limit 100
+)
+select
+    count(*) as total_pitches,
+    balls,
+    strikes
+from SwingMissProbability
+group by balls, strikes
+order by 
+	total_pitches desc  
+  </pre>
       </div>
     </div>
   </template>
