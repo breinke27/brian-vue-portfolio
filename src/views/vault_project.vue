@@ -18,29 +18,10 @@ import banner from './Banner.vue';
       <p class="text-lg mb-4">
         During my time as a data scientist with Vaulted, I was given the opportunity to help create and validate the accuracy of machine learning models. The models that we built were used for creating expected player and team statistics. Along with aiding in the building of these machine learning models using XGBoost, I was able to test their accuracy and reliability using statistical analysis in R for both MLB (American Professional) and NPB (Japanese Professional) data. Below you will see the testing of the swing decision and the ball in play outcome models. Also, attached are SQL querys I was tasked with creating to identify different key player statistics.
       </p>
-      <div class="border border-gray-300 p-4 rounded-lg">
+      <div class="border border-gray-300 p-6 rounded-lg w-full max-w-4xl mx-auto">
         <h3 class="text-xl font-semibold mb-2">Code:</h3>
-        <pre class="text-sm bg-gray-100 p-2 rounded-lg">
-```
-#Brian Reinke NPB SD Validation
-
-#Import Packages 
-library(tidyverse)
-library(lubridate)
-library(stringr)
-library(DBI)
-library(lme4)
-library(RODBC)
-library(ggplot2)
-library(cowplot)
-library(RPostgres)
-library(RPostgreSQL)
-library(tidymodels)
-library(caret)
-library(vip)
-library(dplyr)
-options(dplyr.summarise.inform = FALSE)
-library(vaulted)
+        <pre class="text-sm bg-gray-100 p-4 rounded-lg text-blue-500 overflow-x-auto">
+#NPB SD Validation
 
 con <- vaulted_connect()
 

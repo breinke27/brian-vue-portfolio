@@ -19,9 +19,9 @@ import banner from './Banner.vue';
       <p class="text-lg mb-4">
         As a data engineer, I had the opportunity to build a principle data pipeline for CRM and billing data to bolster SeedMetrics' ELT processes. My job was to construct classes to extract, transform, and load the data. I also had the ability to create a workflow that runs the classes I built and pulls the data from end to end. This process consisted of moving the data through four different stages, landing, normalized, processed, and curated. Attached below is the code of the three classes that completes this process and allows SeedMetrics to render custom dashboards for each of their tenants! Also, I had the opportunity to perform EDA for one of our clients and built a machine learning model to predict if a case will be won or lost using Scikit Learn. 
       </p>
-      <div class="border border-gray-300 p-4 rounded">
+        <div class="border border-gray-300 p-6 rounded-lg w-full max-w-4xl mx-auto">
         <h3 class="text-xl font-semibold mb-2">Code:</h3>
-        <pre class="text-sm bg-gray-100 p-2 rounded">
+        <pre class="text-sm bg-gray-100 p-4 rounded-lg text-blue-500 overflow-x-auto">
 class LandingToNormalizedSalesforceCRM:
     
     def __init_schema__(self):
@@ -1849,7 +1849,7 @@ class CuratedCRMProcessor:
         </pre>
       </div>
       <div class="border border-gray-200 p-4 rounded-lg mt-4">
-      <pre class="text-sm bg-gray-150 p-2 rounded-lg">
+      <pre class="text-sm bg-gray-150 p-2 rounded-lg blue-text-500">
         <h3 class="text-xl font-semibold mb-2">Machine Learning Model:</h3>
 # ML Model for Classifying Won/Lost Boolean Values
 

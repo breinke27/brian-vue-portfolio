@@ -18,15 +18,9 @@ import banner from './Banner.vue';
     <p class="text-lg mb-4">
       As a data engineer, I was given the opportunity to test some of the statistical models built in a Django web app called dataBase. This exercise provided me with an introduction to web applications and more specifically the importance of testing statistical models within the apps themselves. This has led me down the path to build the web app you see here! As I continue to progress with building using Django I will be more hands-on with the creation of further statistical models and the overall functionality of the app.
     </p>
-    <div class="border border-gray-300 p-4 rounded-lg">
-      <h3 class="text-xl font-semibold mb-2">Code:</h3>
-      <pre class="text-sm bg-gray-100 p-2 rounded-lg">
-import typing
-
-import pytest
-
-from database2.dataentry.models import Pitch
-
+    <div class="border border-gray-300 p-6 rounded-lg w-full max-w-4xl mx-auto">
+        <h3 class="text-xl font-semibold mb-2">Code:</h3>
+        <pre class="text-sm bg-gray-100 p-4 rounded-lg text-blue-500 overflow-x-auto">
 if typing.TYPE_CHECKING:
     pass
 
