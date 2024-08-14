@@ -2,7 +2,7 @@
 import Button from '../components/buttons/Button.vue';
 import banner from './Banner.vue';
 import { useRoute } from 'vue-router';
-import headshot from '../assets/headshot.png';
+import headshot from '/headshot.png';
 
 const route = useRoute();
 </script>

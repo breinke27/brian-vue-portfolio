@@ -1,9 +1,9 @@
 <script setup>
 import Button from '../components/buttons/Button.vue';
 import banner from './Banner.vue';
-import smlogo from '../assets/smlogo.png';
-import vaultlogo from '../assets/vaulted_logo.png';
-import dblogo from '../assets/db_logo.png';
+import smlogo from '/smlogo.png';
+import vaultlogo from '/vaulted_logo.png'; 
+import dblogo from '/db_logo.png';
 </script>
 
 <template>
