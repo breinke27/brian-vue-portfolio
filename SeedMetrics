@@ -1,0 +1,2256 @@
+#Brian Reinke SeedMetrics Classes
+class LandingToNormalizedPipedriveCRM:
+
+    def __init_schema__(self):
+        """
+        Creation of method to organize schema such that can be used to perform Unit Testing
+        """
+        self.accounts_crm_schema = T.StructType(
+            [
+                T.StructField('id', T.StringType(), False),
+                T.StructField('name', T.StringType(), True),
+                T.StructField('parent_id', T.StringType(), True),
+                T.StructField('created_date', T.TimestampType(), True),
+                T.StructField('owner_id', T.StringType(), True),
+                T.StructField('industry', T.StringType(), True),
+                T.StructField('is_partner', T.BooleanType(), True),
+                T.StructField('account_id__sm', T.StringType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True)
+            ]
+        )
+
+        self.opportunity_crm_schema = T.StructType(
+            [
+                T.StructField('id', T.StringType(), False),                   
+                T.StructField('account_id', T.StringType(), True),            
+                T.StructField('name', T.StringType(), True),                
+                T.StructField('stage_name', T.StringType(), True),            
+                T.StructField('amount', T.DoubleType(), True),              
+                T.StructField('close_date', T.TimestampType(), True),             
+                T.StructField('type', T.StringType(), True),                  
+                T.StructField('is_closed', T.BooleanType(), True),             
+                T.StructField('description', T.StringType(), True),           
+                T.StructField('is_won', T.BooleanType(), True),                
+                T.StructField('created_date', T.TimestampType(), True),        
+                T.StructField('last_modified_date', T.TimestampType(), True),   
+                T.StructField('tenant', T.StringType(), True),               
+                T.StructField('lost_reason', T.StringType(), True),            
+                T.StructField('product', T.StringType(), True),  
+                T.StructField('sql_date', T.TimestampType(), True),            
+                T.StructField('source_tier1', T.StringType(), True),
+                T.StructField('source_tier2', T.StringType(), True),
+                T.StructField('source_tier3', T.StringType(), True),
+                T.StructField('cohort_date', T.DateType(), True),
+                T.StructField('cohort_month', T.DateType(), True),
+                T.StructField('days_to_close', T.IntegerType(), True),
+                T.StructField('owner_name', T.StringType(), True),
+                T.StructField('last_modified_by', T.StringType(), True),
+                T.StructField('new_or_existing', T.StringType(), True),
+                T.StructField('referral_id', T.StringType(), True),
+                T.StructField('termination_date', T.TimestampType(), True),
+                T.StructField('mrr_end_date', T.TimestampType(), True),
+                T.StructField('mrr_start_date', T.TimestampType(), True),
+                T.StructField('opportunity_id__sm', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True),
+                T.StructField('account_id__sm', T.StringType(), True),
+                T.StructField('term_length_months', T.StringType(), True),
+                T.StructField('arr_amount', T.DecimalType(), True)
+                ]
+        )
+
+        self.user_crm_schema = T.StructType(
+            [
+                T.StructField('id', T.StringType(), False),
+                T.StructField('name', T.StringType(), True),
+                T.StructField('username', T.StringType(), True),
+                T.StructField('email', T.StringType(), True),
+                T.StructField('title', T.StringType(), True),
+                T.StructField('user_id__sm', T.StringType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True)
+            ]
+        )
+
+        self.dim_stages_crm_schema = T.StructType(
+            [
+                T.StructField('stage_id__sm', T.StringType(), False),
+                T.StructField('stage_id', T.StringType(), True),
+                T.StructField('stage_name', T.StringType(), True),
+                T.StructField('stage_order_number', T.IntegerType(), True),
+                T.StructField('pipeline_id', T.StringType(), True),
+                T.StructField('pipeline_name', T.StringType(), True),
+                T.StructField('deal_probability', T.IntegerType(), True),
+                T.StructField('rotten_days', T.IntegerType(), True),
+                T.StructField('date_added', T.DateType(), True),
+                T.StructField('date_updated', T.DateType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True)
+            ]
+        )
+
+    def __init__(self, spark_session, env, tenant, interval):
+        self.spark = spark_session
+        self.env = env
+        self.tenant = tenant 
+        self.interval = interval
+        self.pipedrive_accounts_path = f"{self.env}.landing_crm.{self.tenant}_pipedrive_organizations"
+        self.pipedrive_opportunity_path = f"{self.env}.landing_crm.{self.tenant}_pipedrive_deals"
+        self.pipedrive_user_path = f"{self.env}.landing_crm.{self.tenant}_pipedrive_users"
+        self.pipedrive_dim_stages_path = f"{self.env}.landing_crm.{self.tenant}_pipedrive_stages"
+        self.__init_schema__()
+        self.accounts_column_mapping = {
+            "id": "id",
+            "name": "name",
+            "parent_id": "rel_owner_org_id",
+            "created_date": "add_time",
+            "owner_id": "owner_id",
+            "industry": "Industry",
+            "is_partner": "Partner"}
+        
+        self.opportunity_column_mapping = {
+            "id":"id",
+            "account_id": "org_id",
+            "name": "name",
+            "stage_name": "stage_id",
+            "amount": "value",
+            "close_date": "close_time",
+            "type": "Type",
+            "is_closed": "IsClosed",
+            "description": "Description",
+            "is_won": "IsWon",
+            "created_date": "add_time",
+            "last_modified_date": "update_time",
+            "tenant": "tenant",
+            "lost_reason": "lost_reason",
+            "product": "product_name",
+            "sql_date": "add_time",
+            "source_tier1": "lead_source",
+            "source_tier2": "SourceTier2",
+            "source_tier3": "SourceTier3",
+            "cohort_date": "CohortDate",
+            "cohort_month": "CohortMonth",
+            "owner_name": "owner_name",
+            "last_modified_by": "LastModifiedBy",
+            "referral_id": "ReferralId",
+            "termination_date": "TerminationDate",
+            "mrr_end_date": "MRREndDate,",
+            "mrr_start_date": "MRRStartDate",
+            "term_length_months":"Initial_Term__c",
+            "arr_amount":"ARR_Calculated__c"}
+        
+        self.user_column_mapping = {
+            "id": "id",
+            "name": "name",
+            "username": "email",
+            "email": "email",
+            "title": "Title"}
+        
+        self.dim_stages_column_mapping = {
+            "stage_id":"id",
+            "stage_name":"name",
+            "stage_order_number":"stage_order_number",
+            "pipeline_id":"pipeline_id",
+            "pipeline_name":"pipeline_name",
+            "deal_probability":"deal_probability",
+            "rotten_days":"rotten_days",
+            "date_added":"add_time",
+            "date_updated":"update_time",
+            "tenant":"tenant"}
+
+    def normalize_pd_accounts(self):
+        '''
+        This method normalizes accounts for Pipedrive landing data
+        Returns: normalized DF for accounts
+        '''
+
+        # Get column types from defined schema
+        accounts_crm_schema = self.accounts_crm_schema
+        column_type_inputs = {field.name: field.dataType.simpleString() for field in accounts_crm_schema}
+
+        # -- Need to check to see if column exists, if not query null for the norm_column --
+        # Initialize the list to store the columns
+        columns = []
+
+        # Get landing_df to check if the necessary columns exist
+        landing_df = self.spark.sql(f"select * from {self.pipedrive_accounts_path} WHERE tenant = '{self.tenant}'")
+
+        # Iterate through the column mapping inputs
+        for norm_column, landing_column in self.accounts_column_mapping.items():
+
+            # Get the data type from column_type_inputs
+            datatype = column_type_inputs[norm_column]
+
+            # Check if the landing column exists in the landing df
+            if landing_column in landing_df.columns:
+                columns.append(f"""cast({landing_column} as {datatype}) as {norm_column}""")
+            else:
+                columns.append(f"""cast(null as {datatype}) as {norm_column}""")
+
+        # Creates string from column list
+        columns_string = ",".join(columns)
+
+        # SQL Query to use
+        query = f"""
+                SELECT 
+                {columns_string},
+                    CAST(CONCAT(tenant,"-",Id) AS string) account_id__sm,
+                    CAST(tenant AS string) tenant,
+                    "pipedrive" AS data_source__sm
+                 FROM {self.pipedrive_accounts_path}
+                 WHERE tenant = '{self.tenant}';
+                 """
+
+        pd_accounts_df = self.spark.sql(query)
+
+        assertSchemaEqual(pd_accounts_df.schema, self.accounts_crm_schema)
+
+        pk_count = pd_accounts_df.groupBy("account_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in account_id__sm column"
+
+        return pd_accounts_df
+
+    def normalize_pd_opportunity(self):
+        '''
+        This method normalizes opportunity for pipedrive landing data
+        Returns: Normalized DF for opportunity
+        '''
+
+        # Get column types from defined schema
+        opportunity_crm_schema = self.opportunity_crm_schema
+        column_type_inputs = {field.name: field.dataType.simpleString() for field in opportunity_crm_schema}
+
+        # Initialize the list to store the columns
+        columns = []
+
+        # Get landing_df to check if the necessary columns exist
+        landing_df = self.spark.sql(f"select * from {self.pipedrive_opportunity_path} WHERE tenant = '{self.tenant}'")
+
+        # Iterate through the column mapping inputs
+        for norm_column, landing_column in self.opportunity_column_mapping.items():
+
+            # Get the data type from column_type_inputs
+            datatype = column_type_inputs.get(norm_column, "string")  # Default data type to string if not found
+
+            # Check if the landing column exists in the landing df
+            if landing_column in landing_df.columns:
+                columns.append(f"""cast({landing_column} as {datatype}) as {norm_column}""")
+            else:
+                columns.append(f"""cast(null as {datatype}) as {norm_column}""")
+
+        # Creates string from column list
+        columns_string = ",".join(columns)
+
+        # Creating temp views and sub querys for selecting the right tables in PD and using logic!
+        # Creating DF for stages + opportunity
+        pipedrive_stages_df = self.spark.sql(f"select * from {self.env}.landing_crm.{self.tenant}_pipedrive_stages WHERE tenant = '{self.tenant}'")
+        pipedrive_opportunity_df = self.spark.sql(f"select * from {self.pipedrive_opportunity_path} WHERE tenant = '{self.tenant}'")      
+
+        # Creating temp view of DF's
+        pipedrive_stages_df.createOrReplaceTempView("temp_stages")
+        pipedrive_opportunity_df.createOrReplaceTempView("temp_opportunity")
+
+        # SQL query for temporary views
+        pd_opportunity_df = self.spark.sql(
+            """
+            WITH raw_opps AS (
+                SELECT 
+                    a.*,
+                    b.name AS stage_name
+                FROM temp_opportunity a
+                LEFT JOIN temp_stages b ON a.stage_id = b.id
+            ),
+            first_created_date AS (
+                SELECT
+                    org_id,
+                    FIRST_VALUE(add_time) OVER (PARTITION BY org_id ORDER BY add_time) AS first_created_date
+                FROM temp_opportunity
+            )
+            SELECT
+                cast(a.id AS string) id,
+                cast(a.org_id AS string) account_id,
+                cast(a.product_name AS string) name,
+                cast(a.stage_name AS string) stage_name,
+                cast(a.value AS double) amount,
+                cast(a.close_time AS timestamp) close_date,
+                cast(a.next_activity_type AS string) type,
+                cast(
+                    CASE
+                        WHEN a.status = 'closed' THEN true
+                        ELSE false
+                    END AS boolean
+                ) is_closed,
+                cast(NULL AS string) description,
+                cast(
+                    CASE
+                        WHEN a.won_time IS NOT NULL THEN true
+                        ELSE false
+                    END AS boolean
+                ) is_won,
+                cast(a.add_time AS timestamp) created_date,
+                cast(a.update_time AS timestamp) last_modified_date,
+                cast(a.tenant AS string) tenant,
+                cast(a.lost_reason AS string) lost_reason,
+                cast(a.product_name AS string) product,
+                cast(a.add_time AS timestamp) sql_date,
+                cast(a.lead_source AS string) source_tier1,
+                cast(NULL AS string) source_tier2,
+                cast(NULL AS string) source_tier3,
+                cast(NULL AS date) cohort_date,
+                cast(NULL AS date) cohort_month,
+                cast(NULL AS integer) days_to_close,
+                cast(a.owner_name AS string) owner_name,
+                cast(a.last_activity_id AS string) last_modified_by,
+                cast(
+                    CASE
+                        WHEN a.add_time = f.first_created_date THEN 'New'
+                        ELSE 'Existing'
+                        END AS string
+                    ) AS new_or_existing,
+                cast(NULL AS string) referral_id,
+                cast(NULL AS timestamp) termination_date,
+                cast(NULL AS timestamp) mrr_end_date,
+                cast(NULL AS timestamp) mrr_start_date,
+                cast(concat(a.tenant,"-",a.id) as string) as opportunity_id__sm,
+                "pipedrive" as data_source__sm,
+                cast(concat(tenant,"-",account_id) as string) account_id__sm,
+                cast(NULL as string) term_length_months,
+                cast(NULL as Decimal(18,2)) arr_amount
+            FROM raw_opps as a
+            LEFT JOIN first_created_date f ON a.org_id = f.org_id;
+            """
+        )
+        pd_opportunity_df = pd_opportunity_df.dropna(subset=["id"]) 
+
+        #pd_opportunity_df.display()
+
+        assertSchemaEqual(pd_opportunity_df.schema, self.opportunity_crm_schema)
+        
+        pk_count = pd_opportunity_df.groupBy("opportunity_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in opportunity_id__sm column"
+
+        return pd_opportunity_df
+
+    def normalize_pd_user(self):
+        '''
+        The method normalizes users for pipedrive data_quality
+        Returns: Normalized DF for Users
+        '''
+        # Get custome column types from defined schema
+        user_crm_schema = self.user_crm_schema
+        column_type_inputs = {field.name: field.dataType.simpleString() for field in self.user_crm_schema}
+
+        # -- Need to check to see if column exists, if not query null for the norm_column --
+        # Initialize the list to store the columns
+        columns = []
+
+        # Get landing_df to check if the necessary columns exist
+        landing_df = self.spark.sql(f"select * from {self.pipedrive_user_path} WHERE tenant = '{self.tenant}'")
+
+        # Iterate through the column mapping inputs
+        for norm_column, landing_column in self.user_column_mapping.items():
+
+            # Get the data type from column_type_inputs
+            datatype = column_type_inputs[norm_column]
+
+            # Check if the landing column exists in the landing df
+            if landing_column in landing_df.columns:
+                columns.append(f"""cast({landing_column} as {datatype}) as {norm_column}""")
+            else:
+                columns.append(f"""cast(null as {datatype}) as {norm_column}""")
+
+        # Creates string from column list
+        columns_string = ",".join(columns)
+
+        # SQL Query to use
+        query = f"""SELECT {columns_string},
+                        CAST(CONCAT(tenant,"-",id) AS string) user_id__sm,
+                        CAST(tenant AS string) tenant,
+                        "pipedrive" AS data_source__sm
+                     FROM {self.pipedrive_user_path}
+                     WHERE tenant = '{self.tenant}';
+                     """
+
+        pd_user_df = self.spark.sql(query)
+
+        assertSchemaEqual(pd_user_df.schema, self.user_crm_schema)
+
+        pk_count = pd_user_df.groupBy("user_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in user_id__sm column"
+
+        return pd_user_df
+    
+
+    def normalize_pd_dim_stages(self):
+        '''
+        The method normalizes users for pipedrive data_quality
+        Returns: Normalized DF for dim_stages
+        '''
+        # Get custome column types from defined schema
+        dim_stages_crm_schema = self.dim_stages_crm_schema
+        column_type_inputs = {field.name: field.dataType.simpleString() for field in self.dim_stages_crm_schema}
+
+        # -- Need to check to see if column exists, if not query null for the norm_column --
+        # Initialize the list to store the columns
+        columns = []
+
+        # Get landing_df to check if the necessary columns exist
+        landing_df = self.spark.sql(f"select * from {self.pipedrive_dim_stages_path} WHERE tenant = '{self.tenant}'")
+
+        # Iterate through the column mapping inputs
+        for norm_column, landing_column in self.dim_stages_column_mapping.items():
+
+            # Get the data type from column_type_inputs
+            datatype = column_type_inputs[norm_column]
+
+            # Check if the landing column exists in the landing df
+            if landing_column in landing_df.columns:
+                columns.append(f"""cast({landing_column} as {datatype}) as {norm_column}""")
+            else:
+                columns.append(f"""cast(null as {datatype}) as {norm_column}""")
+
+        # Creates string from column list
+        columns_string = ",".join(columns)
+
+        # SQL Query to use
+        query = f"""SELECT
+                        CAST(CONCAT(tenant,"-",id) AS string) stage_id__sm,
+                        {columns_string},
+                        CAST('pipedrive' AS string) data_source__sm
+                     FROM {self.pipedrive_dim_stages_path}
+                     WHERE tenant = '{self.tenant}';
+                     """
+
+        pd_dim_stages_df = self.spark.sql(query)
+
+        assertSchemaEqual(pd_dim_stages_df.schema, self.dim_stages_crm_schema)
+
+        pk_count = pd_dim_stages_df.groupBy("stage_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in stage_id__sm column"
+
+        return pd_dim_stages_df
+
+class LandingToNormalizedSalesforceCRM:
+    
+    def __init_schema__(self):
+        """
+        Creation of method to organize schema such that can be used to perform Unit Testing
+
+        """
+        self.accounts_crm_schema = T.StructType(
+            [
+                T.StructField('id', T.StringType(), False),
+                T.StructField('name', T.StringType(), True),
+                T.StructField('parent_id', T.StringType(), True),
+                T.StructField('created_date', T.TimestampType(), True),
+                T.StructField('owner_id', T.StringType(), True),
+                T.StructField('industry', T.StringType(), True),
+                T.StructField('is_partner', T.BooleanType(), True),
+                T.StructField('account_id__sm', T.StringType(), True),
+                T.StructField('tenant', T.StringType(), False),
+                T.StructField('data_source__sm', T.StringType(), True)
+            ]
+        )
+        self.opportunity_crm_schema = T.StructType(
+            [
+                T.StructField('id', T.StringType(), False),                   
+                T.StructField('account_id', T.StringType(), True),            
+                T.StructField('name', T.StringType(), True),                
+                T.StructField('stage_name', T.StringType(), True),            
+                T.StructField('amount', T.DoubleType(), True),              
+                T.StructField('close_date', T.TimestampType(), True),             
+                T.StructField('type', T.StringType(), True),                  
+                T.StructField('is_closed', T.BooleanType(), True),             
+                T.StructField('description', T.StringType(), True),           
+                T.StructField('is_won', T.BooleanType(), True),                
+                T.StructField('created_date', T.TimestampType(), True),        
+                T.StructField('last_modified_date', T.TimestampType(), True),   
+                T.StructField('tenant', T.StringType(), False),               
+                T.StructField('lost_reason', T.StringType(), True),            
+                T.StructField('product', T.StringType(), True),  
+                T.StructField('sql_date', T.TimestampType(), True),            
+                T.StructField('source_tier1', T.StringType(), True),
+                T.StructField('source_tier2', T.StringType(), True),
+                T.StructField('source_tier3', T.StringType(), True),
+                T.StructField('cohort_date', T.DateType(), True),
+                T.StructField('cohort_month', T.DateType(), True),
+                T.StructField('days_to_close', T.IntegerType(), True),
+                T.StructField('owner_name', T.StringType(), True),
+                T.StructField('last_modified_by', T.StringType(), True),
+                T.StructField('new_or_existing', T.StringType(), True),
+                T.StructField('referral_id', T.StringType(), True),
+                T.StructField('termination_date', T.TimestampType(), True),
+                T.StructField('mrr_end_date', T.TimestampType(), True),
+                T.StructField('mrr_start_date', T.TimestampType(), True),
+                T.StructField('opportunity_id__sm', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True),
+                T.StructField('account_id__sm', T.StringType(), True),
+                T.StructField('term_length_months', T.StringType(), True),
+                T.StructField('arr_amount', T.DecimalType(), True)
+                ]
+        )
+
+        self.user_crm_schema = T.StructType(
+            [
+                T.StructField('id', T.StringType(), False),
+                T.StructField('name', T.StringType(), True),
+                T.StructField('username', T.StringType(), True),
+                T.StructField('email', T.StringType(), True),
+                T.StructField('title', T.StringType(), True),
+                T.StructField('user_id__sm', T.StringType(), True),
+                T.StructField('tenant', T.StringType(), False),
+                T.StructField('data_source__sm', T.StringType(), True)
+            ]
+        )
+
+        self.dim_stages_crm_schema = T.StructType(
+            [
+                T.StructField('stage_id__sm', T.StringType(), False),
+                T.StructField('stage_id', T.StringType(), True),
+                T.StructField('stage_name', T.StringType(), True),
+                T.StructField('stage_order_number', T.IntegerType(), True),
+                T.StructField('pipeline_id', T.StringType(), True),
+                T.StructField('pipeline_name', T.StringType(), True),
+                T.StructField('deal_probability', T.IntegerType(), True),
+                T.StructField('rotten_days', T.IntegerType(), True),
+                T.StructField('date_added', T.DateType(), True),
+                T.StructField('date_updated', T.DateType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True)            
+            ]
+        )
+
+    def __init__(self, spark_session, env, tenant, interval):
+        self.spark = spark_session
+        self.env = env
+        self.tenant = tenant 
+        self.interval = interval
+        self.salesforce_accounts_path = f"{self.env}.landing_crm.{self.tenant}_sf_accounts"
+        self.salesforce_opportunity_path = f"{self.env}.landing_crm.{self.tenant}_sf_opportunity"
+        self.salesforce_user_path = f"{self.env}.landing_crm.{self.tenant}_sf_user"
+        self.salesforce_dim_stages_path = f"{self.env}.landing_crm.default_sf_opportunity_stage"
+        self.__init_schema__()
+        self.preferences = {      
+    "SVTRobotics": {
+        "opportunity": [
+            {"selected_landing_column": "Id", "norm_column": "id"},
+            {"selected_landing_column": "AccountId", "norm_column": "account_id"},
+            {"selected_landing_column": "Name", "norm_column": "name"},
+            {"selected_landing_column": "StageName", "norm_column": "stage_name"},
+            {"selected_landing_column": "Amount", "norm_column": "amount"},
+            {"selected_landing_column": "CloseDate", "norm_column": "close_date"},
+            {"selected_landing_column": "Type", "norm_column": "type"},
+            {"selected_landing_column": "IsClosed", "norm_column": "is_closed"},
+            {"selected_landing_column": "Description", "norm_column": "description"},
+            {"selected_landing_column": "IsWon", "norm_column": "is_won"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "created_date"},
+            {"selected_landing_column": "LastModifiedDate", "norm_column": "last_modified_date"},
+            {"selected_landing_column": "Loss_Reason__c", "norm_column": "lost_reason"},
+            {"selected_landing_column": "Product__c", "norm_column": "product"},
+            {"selected_landing_column": "SQL_Date__c", "norm_column": "sql_date"},
+            {"selected_landing_column": "Master_Source__c", "norm_column": "source_tier1"},
+            {"selected_landing_column": "Detailed_Source__c", "norm_column": "source_tier2"},
+            {"selected_landing_column": "Source_Text__c", "norm_column": "source_tier3"},
+            {"selected_landing_column": "Partner_Referral_2__c", "norm_column": "referral_id"},
+            {"selected_landing_column": "MRR_End_Datecalc__c", "norm_column": "mrr_end_date"},
+            {"selected_landing_column": "MRR_Start_Date__c", "norm_column": "mrr_start_date"},
+            {"selected_landing_column": "Termination_Date__c", "norm_column": "termination_date"},
+            {"selected_landing_column": "SQL_Date__c", "norm_column": "cohort_date"},
+            {"selected_landing_column": "OwnerId", "norm_column": "owner_id"},
+            {"selected_landing_column": "LastModifiedById", "norm_column": "last_modified_by"},
+            {"selected_landing_column": "Initial_Term__c", "norm_column": "term_length_months"},
+            {"selected_landing_column": "ARR_Calculated__c", "norm_column": "arr_amount"}
+        ],
+
+        "accounts": [
+            {"selected_landing_column": "Id", "norm_column": "id"},
+            {"selected_landing_column": "Name", "norm_column": "name"},
+            {"selected_landing_column": "ParentId", "norm_column": "parent_id"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "created_date"},
+            {"selected_landing_column": "OwnerId", "norm_column": "owner_id"},
+            {"selected_landing_column": "Industry", "norm_column": "industry"},
+            {"selected_landing_column": "IsPartner", "norm_column": "is_partner"}
+        ],
+
+        "user": [
+            {"selected_landing_column": "Id", "norm_column": "id"},
+            {"selected_landing_column": "Name", "norm_column": "name"},
+            {"selected_landing_column": "Username", "norm_column": "username"},
+            {"selected_landing_column": "Email", "norm_column": "email"},
+            {"selected_landing_column": "Title", "norm_column": "title"}
+        ],
+
+        "dim_stages": [
+            {"selected_landing_column": "Id", "norm_column": "stage_id"},
+            {"selected_landing_column": "MasterLabel", "norm_column": "stage_name"},
+            {"selected_landing_column": "SortOrder", "norm_column": "stage_order_number"},
+            {"selected_landing_column": "ForecastCategory", "norm_column": "pipeline_id"},
+            {"selected_landing_column": "ForecastCategoryName", "norm_column": "pipeline_name"},
+            {"selected_landing_column": "DefaultProbability", "norm_column": "deal_probability"},
+            {"selected_landing_column": "N/A", "norm_column": "rotten_days"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "date_added"},
+            {"selected_landing_column": "LastModifiedDate", "norm_column": "date_updated"},
+            {"selected_landing_column": "tenant", "norm_column": "tenant"}
+        ]
+
+    },
+    "HDBros": {
+        "opportunity": [
+            {"selected_landing_column": "Id", "norm_column": "id"},
+            {"selected_landing_column": "AccountId", "norm_column": "account_id"},
+            {"selected_landing_column": "Name", "norm_column": "name"},
+            {"selected_landing_column": "StageName", "norm_column": "stage_name"},
+            {"selected_landing_column": "Amount", "norm_column": "amount"},
+            {"selected_landing_column": "CloseDate", "norm_column": "close_Date"},
+            {"selected_landing_column": "Type", "norm_column": "type"},
+            {"selected_landing_column": "IsClosed", "norm_column": "is_closed"},
+            {"selected_landing_column": "Description", "norm_column": "description"},
+            {"selected_landing_column": "IsWon", "norm_column": "is_won"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "created_date"},
+            {"selected_landing_column": "LastModifiedDate", "norm_column": "last_modified_date"},
+            {"selected_landing_column": "Pipedrive_Lost_Reason__c", "norm_column": "lost_reason"},
+            {"selected_landing_column": "Product_Name__c", "norm_column": "product"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "sql_date"},
+            {"selected_landing_column": "LeadSource", "norm_column": "source_tier1"},
+            {"selected_landing_column": "N/A", "norm_column": "source_tier2"},
+            {"selected_landing_column": "N/A", "norm_column": "source_tier3"},
+            {"selected_landing_column": "Referrer__c", "norm_column": "referral_id"},
+            {"selected_landing_column": "N/A", "norm_column": "mrr_end_date"},
+            {"selected_landing_column": "Scheduled_Date_Time__c", "norm_column": "mrr_start_date"},
+            {"selected_landing_column": "N/A", "norm_column": "termination_date"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "cohort_date"},
+            {"selected_landing_column": "OwnerId", "norm_column": "owner_id"},
+            {"selected_landing_column": "LastModifiedById", "norm_column": "last_modified_by"},
+            {"selected_landing_column": "Initial_Term__c", "norm_column": "term_length_months"},
+            {"selected_landing_column": "ARR_Calculated__c", "norm_column": "arr_amount"}
+        ],
+
+        "accounts": [
+            {"selected_landing_column": "Id", "norm_column": "id"},
+            {"selected_landing_column": "Name", "norm_column": "name"},
+            {"selected_landing_column": "ParentId", "norm_column": "parent_id"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "created_date"},
+            {"selected_landing_column": "OwnerId", "norm_column": "owner_id"},
+            {"selected_landing_column": "Industry", "norm_column": "industry"},
+            {"selected_landing_column": "N/A", "norm_column": "is_partner"}
+        ],
+
+        "user": [
+            {"selected_landing_column": "Id", "norm_column": "id"},
+            {"selected_landing_column": "Name", "norm_column": "name"},
+            {"selected_landing_column": "Username", "norm_column": "username"},
+            {"selected_landing_column": "Email", "norm_column": "email"},
+            {"selected_landing_column": "Title", "norm_column": "title"}
+        ],
+
+        "dim_stages": [
+            {"selected_landing_column": "Id", "norm_column": "stage_id"},
+            {"selected_landing_column": "MasterLabel", "norm_column": "stage_name"},
+            {"selected_landing_column": "SortOrder", "norm_column": "stage_order_number"},
+            {"selected_landing_column": "ForecastCategory", "norm_column": "pipeline_id"},
+            {"selected_landing_column": "ForecastCategoryName", "norm_column": "pipeline_name"},
+            {"selected_landing_column": "DefaultProbability", "norm_column": "deal_probability"},
+            {"selected_landing_column": "N/A", "norm_column": "rotten_days"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "date_added"},
+            {"selected_landing_column": "LastModifiedDate", "norm_column": "date_updated"},
+            {"selected_landing_column": "tenant", "norm_column": "tenant"}
+        ]
+    },
+    "Default": {
+        "opportunity": [
+            {"selected_landing_column": "Id", "norm_column": "id"},
+            {"selected_landing_column": "AccountId", "norm_column": "account_id"},
+            {"selected_landing_column": "Name", "norm_column": "name"},
+            {"selected_landing_column": "StageName", "norm_column": "stage_name"},
+            {"selected_landing_column": "Amount", "norm_column": "amount"},
+            {"selected_landing_column": "CloseDate", "norm_column": "close_date"},
+            {"selected_landing_column": "Type", "norm_column": "type"},
+            {"selected_landing_column": "IsClosed", "norm_column": "is_closed"},
+            {"selected_landing_column": "Description", "norm_column": "description"},
+            {"selected_landing_column": "IsWon", "norm_column": "is_won"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "created_date"},
+            {"selected_landing_column": "LastModifiedDate", "norm_column": "last_modified_date"},
+            {"selected_landing_column": "N/A", "norm_column": "lost_reason"},
+            {"selected_landing_column": "N/A", "norm_column": "product"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "sql_date"},
+            {"selected_landing_column": "LeadSource", "norm_column": "source_tier1"},
+            {"selected_landing_column": "N/A", "norm_column": "source_tier2"},
+            {"selected_landing_column": "N/A", "norm_column": "source_tier3"},
+            {"selected_landing_column": "N/A", "norm_column": "referral_id"},
+            {"selected_landing_column": "N/A", "norm_column": "mrr_end_date"},
+            {"selected_landing_column": "N/A", "norm_column": "mrr_start_date"},
+            {"selected_landing_column": "N/A", "norm_column": "termination_date"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "cohort_date"},
+            {"selected_landing_column": "OwnerId", "norm_column": "owner_id"},
+            {"selected_landing_column": "LastModifiedById", "norm_column": "last_modified_by"},
+            {"selected_landing_column": "Initial_Term__c", "norm_column": "term_length_months"},
+            {"selected_landing_column": "ARR_Calculated__c", "norm_column": "arr_amount"}
+        ],
+
+        "accounts": [
+            {"selected_landing_column": "Id", "norm_column": "id"},
+            {"selected_landing_column": "Name", "norm_column": "name"},
+            {"selected_landing_column": "ParentId", "norm_column": "parent_id"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "created_date"},
+            {"selected_landing_column": "OwnerId", "norm_column": "owner_id"},
+            {"selected_landing_column": "Industry", "norm_column": "industry"},
+            {"selected_landing_column": "N/A", "norm_column": "is_partner"}
+            
+        ],
+
+        "user": [
+            {"selected_landing_column": "Id", "norm_column": "id"},
+            {"selected_landing_column": "Name", "norm_column": "name"},
+            {"selected_landing_column": "Username", "norm_column": "username"},
+            {"selected_landing_column": "Email", "norm_column": "email"},
+            {"selected_landing_column": "Title", "norm_column": "title"}
+        ],
+
+        "dim_stages": [
+            {"selected_landing_column": "Id", "norm_column": "stage_id"},
+            {"selected_landing_column": "MasterLabel", "norm_column": "stage_name"},
+            {"selected_landing_column": "SortOrder", "norm_column": "stage_order_number"},
+            {"selected_landing_column": "ForecastCategory", "norm_column": "pipeline_id"},
+            {"selected_landing_column": "ForecastCategoryName", "norm_column": "pipeline_name"},
+            {"selected_landing_column": "DefaultProbability", "norm_column": "deal_probability"},
+            {"selected_landing_column": "N/A", "norm_column": "rotten_days"},
+            {"selected_landing_column": "CreatedDate", "norm_column": "date_added"},
+            {"selected_landing_column": "LastModifiedDate", "norm_column": "date_updated"},
+            {"selected_landing_column": "tenant", "norm_column": "tenant"}
+        ]
+    }
+    }
+    
+    def normalize_sf_accounts(self):
+        '''
+        This method normalizes accounts for salesforce landing data
+
+        Returns: normalized DF for accounts
+        '''
+        # Get column types from defined schema
+        accounts_crm_schema = self.accounts_crm_schema
+        column_type_inputs = {field.name: field.dataType.simpleString() for field in accounts_crm_schema}
+
+        # -- Need to check to see if column exists, if not query null for the norm_column --
+        # Initialize the list to store the columns
+        columns = []
+
+        # Get landing_df to check if the necessary columns exist
+        landing_df = self.spark.sql(f"SELECT * FROM {self.salesforce_accounts_path} WHERE tenant = '{self.tenant}'")
+
+        if self.tenant in self.preferences:
+            # If tenant is in preferences, iterate over tenant's accounts
+            for column in self.preferences[self.tenant]["accounts"]:
+                norm_column = column["norm_column"]
+                landing_column = column["selected_landing_column"]
+
+                # Get the data type from column_type_inputs
+                datatype = column_type_inputs.get(norm_column, "string")
+
+                # Check if the landing column exists in the landing df
+                if landing_column in landing_df.columns:
+                    columns.append(f"cast({landing_column} as {datatype}) as {norm_column}")
+                else:
+                    print(f"{landing_column} not found in landing accounts table, casting {norm_column} as null")
+                    columns.append(f"cast(null as {datatype}) as {norm_column}")
+        else:
+            # If tenant is not in preferences, iterate over "Default" accounts
+            for column in self.preferences["Default"]["accounts"]:
+                norm_column = column["norm_column"]
+                landing_column = column["selected_landing_column"]
+
+                # Get the data type from column_type_inputs
+                datatype = column_type_inputs.get(norm_column, "string")
+
+                # Check if the landing column exists in the landing df
+                if landing_column in landing_df.columns:
+                    columns.append(f"cast({landing_column} as {datatype}) as {norm_column}")
+                else:
+                    print(f"{landing_column} not found in landing accounts table, casting {norm_column} as null")
+                    columns.append(f"cast(null as {datatype}) as {norm_column}")
+
+        # Creates string from column list
+        columns_string = ",".join(columns)
+
+        id_col = None
+        for column in self.preferences[f"{self.tenant}"]["accounts"]: 
+            if column["norm_column"] == "id":
+                id_col = column["selected_landing_column"]
+
+        #print(id_col)
+
+        # SQL Query to use
+        query = (f"""
+            SELECT 
+                {columns_string},
+                CAST(concat(tenant,"-",{id_col}) AS string) account_id__sm,
+                CAST(tenant AS string) as tenant,
+                "salesforce" AS data_source__sm
+            FROM {self.salesforce_accounts_path}
+            WHERE tenant = '{self.tenant}';
+            """
+        )
+        # print(query)
+        sf_accounts_df = spark.sql(query)
+                
+        assertSchemaEqual(sf_accounts_df.schema, self.accounts_crm_schema)
+
+        pk_count = sf_accounts_df.groupBy("account_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in account_id__sm column"
+
+        return(sf_accounts_df)
+    
+    def normalize_sf_opportunity(self):
+        '''
+        This method normalizes opportunity for salesforce landing data
+
+        Returns: Normalized DF for opportunity
+        '''
+        # Get column types from defined schema
+        opportunity_crm_schema = self.opportunity_crm_schema
+        column_type_inputs = {field.name: field.dataType.simpleString() for field in opportunity_crm_schema}
+
+        # Initialize the list to store the columns
+        columns = []
+
+        # Get landing_df to check if the necessary columns exist
+        landing_df = self.spark.sql(f"select * from {self.salesforce_opportunity_path} WHERE tenant = '{self.tenant}'")
+
+        # Iterating over the tenant's preference for opportunity columns
+        if self.tenant in self.preferences:
+            for column in self.preferences[self.tenant]["opportunity"]:
+                norm_column = column["norm_column"]
+                landing_column = column["selected_landing_column"]
+
+                # Get the data type from column_type_inputs
+                datatype = column_type_inputs.get(norm_column, "string")  # Default data type to string if not found
+
+                # Check if the landing column exists in the landing df
+                if landing_column in landing_df.columns:
+                    columns.append(f"cast({landing_column} as {datatype}) as {norm_column}")
+                else:
+                    print(f"{landing_column} not found in landing opportunity table, casting {norm_column} as null")
+                    columns.append(f"cast(null as {datatype}) as {norm_column}")
+
+        else:
+            # If tenant is not found in preferences, use the default opportunity mapping
+            for column in self.preferences["Default"]["opportunity"]:
+                norm_column = column["norm_column"]
+                landing_column = column["selected_landing_column"]
+
+                # Get the data type from column_type_inputs
+                datatype = column_type_inputs.get(norm_column, "string")  # Default data type to string if not found
+
+                # Check if the landing column exists in the landing df
+                if landing_column in landing_df.columns:
+                    columns.append(f"cast({landing_column} as {datatype}) as {norm_column}")
+                else:
+                    print(f"{landing_column} not found in landing opportunity table, casting {norm_column} as null")
+                    columns.append(f"cast(null as {datatype}) as {norm_column}")
+
+        # Create string from column list
+        columns_string = ",".join(columns)
+
+        # Determine the ID column for further processing
+        id_col = None
+        for column in self.preferences[self.tenant]["opportunity"]:
+            if column["norm_column"] == "id":
+                id_col = column["selected_landing_column"]
+                break
+
+        # SQL Query to use
+        query = f"""
+            SELECT
+                b.id,
+                b.account_id,
+                b.name,
+                b.stage_name,
+                b.amount,
+                CAST(b.close_date AS timestamp) close_date,
+                b.type,
+                b.is_closed,
+                b.description,
+                b.is_won,
+                b.created_date,
+                b.last_modified_date,
+                b.tenant,
+                b.lost_reason,
+                b.product,
+                b.sql_date,
+                b.source_tier1,
+                b.source_tier2,
+                b.source_tier3,
+                b.cohort_date,
+                CAST(last_day(b.cohort_date) AS date) cohort_month,
+                CAST(
+                    CASE 
+                        WHEN b.is_closed = TRUE 
+                        THEN DATEDIFF(b.close_date, b.sql_date)
+                    END
+                    AS integer
+                ) days_to_close,
+                CAST(c.name AS string) owner_name,
+                CAST(d.name AS string) last_modified_by,
+                CAST(
+                    CASE
+                        WHEN b.created_date = FIRST_VALUE(b.created_date) OVER (PARTITION BY b.account_id ORDER BY b.created_date) THEN 'New'
+                        ELSE 'Existing'
+                    END
+                    AS string
+                ) new_or_existing,
+                b.referral_id,
+                b.termination_date,
+                b.mrr_end_date,
+                b.mrr_start_date,
+                b.opportunity_id__sm,
+                b.data_source__sm,
+                b.account_id__sm,
+                CAST(b.term_length_months AS string) term_length_months,
+                CAST(b.arr_amount AS decimal(18,2)) arr_amount
+
+            FROM (
+                SELECT
+                    {columns_string},
+                    CAST(CONCAT(tenant, '-', {id_col}) AS string) opportunity_id__sm,
+                    CAST(tenant AS string) tenant,
+                    'salesforce' AS data_source__sm,
+                    CONCAT(tenant, '-', account_id) account_id__sm
+                FROM {self.salesforce_opportunity_path} a
+                WHERE tenant = '{self.tenant}'
+            ) b
+            LEFT JOIN {self.salesforce_user_path} c ON b.owner_id = c.id
+            LEFT JOIN {self.salesforce_user_path} d ON b.last_modified_by = d.id;
+        """
+
+        sf_opportunity_df = self.spark.sql(query)
+
+        # Assert schema equality
+        assertSchemaEqual(sf_opportunity_df.schema, self.opportunity_crm_schema)
+
+        pk_count = sf_opportunity_df.groupBy("opportunity_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in opportunity_id__sm column"
+
+        return sf_opportunity_df
+        
+    def normalize_sf_user(self):
+        '''
+        The method normalizes users for salesforce data_quality
+
+        Returns: Normalized DF for Users
+        '''
+        # Get column types from defined schema
+        user_crm_schema = self.user_crm_schema
+        column_type_inputs = {field.name: field.dataType.simpleString() for field in self.user_crm_schema}
+
+        # Initialize the list to store the columns
+        columns = []
+
+        # Get landing_df to check if the necessary columns exist
+        landing_df = self.spark.sql(f"select * from {self.salesforce_user_path} WHERE tenant = '{self.tenant}'")
+
+        if self.tenant in self.preferences:
+            # If tenant is in preferences, iterate over tenant's user
+            for column in self.preferences[self.tenant]["user"]:
+                norm_column = column["norm_column"]
+                landing_column = column["selected_landing_column"]
+
+                # Get the data type from column_type_inputs
+                datatype = column_type_inputs.get(norm_column, "string")
+
+                # Check if the landing column exists in the landing df
+                if landing_column in landing_df.columns:
+                    columns.append(f"cast({landing_column} as {datatype}) as {norm_column}")
+                else:
+                    print(f"{landing_column} not found in landing user table, casting {norm_column} as null")
+                    columns.append(f"cast(null as {datatype}) as {norm_column}")
+        else:
+            # If tenant is not in preferences, iterate over "Default" user
+            for column in self.preferences["Default"]["user"]:
+                norm_column = column["norm_column"]
+                landing_column = column["selected_landing_column"]
+
+                # Get the data type from column_type_inputs
+                datatype = column_type_inputs.get(norm_column, "string")
+
+                # Check if the landing column exists in the landing df
+                if landing_column in landing_df.columns:
+                    columns.append(f"cast({landing_column} as {datatype}) as {norm_column}")
+                else:
+                    print(f"{landing_column} not found in landing user table, casting {norm_column} as null")
+                    columns.append(f"cast(null as {datatype}) as {norm_column}")
+
+        # Creates string from column list
+        columns_string = ",".join(columns)
+
+        id_col = None
+        for column in self.preferences[self.tenant]["user"]:
+            if column["norm_column"] == "id":
+                id_col = column["selected_landing_column"]
+
+        # SQL Query to use
+        query = f"""
+            SELECT
+                {columns_string},
+                CAST(concat(tenant,"-",{id_col}) AS string) user_id__sm,
+                CAST(tenant AS string) tenant,
+                'salesforce' AS data_source__sm
+            FROM {self.salesforce_user_path}
+            WHERE tenant = '{self.tenant}';
+        """
+
+        sf_user_df = self.spark.sql(query)
+
+        assertSchemaEqual(sf_user_df.schema, self.user_crm_schema)
+
+        pk_count = sf_user_df.groupBy("user_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in user_id__sm column"
+
+
+        sf_user_df.createOrReplaceGlobalTempView("temporary_users")
+
+        return sf_user_df
+    
+    def normalize_sf_dim_stages(self):
+        '''
+        The method normalizes dim_stages for salesforce data_quality
+
+        Returns: Normalized DF for dim_stages
+        '''
+        # Get column types from defined schema
+        dim_stages_crm_schema = self.dim_stages_crm_schema
+        column_type_inputs = {field.name: field.dataType.simpleString() for field in self.dim_stages_crm_schema}
+
+        # Initialize the list to store the columns
+        columns = []
+
+        # Get landing_df to check if the necessary columns exist
+        landing_df = self.spark.sql(f"select * from {self.salesforce_dim_stages_path} WHERE tenant = '{self.tenant}'")
+
+        if self.tenant in self.preferences:
+            # If tenant is in preferences, iterate over tenant's dim_stages
+            for column in self.preferences[self.tenant]["dim_stages"]:
+                norm_column = column["norm_column"]
+                landing_column = column["selected_landing_column"]
+
+                # Get the data type from column_type_inputs
+                datatype = column_type_inputs.get(norm_column, "string")
+
+                # Check if the landing column exists in the landing df
+                if landing_column in landing_df.columns:
+                    columns.append(f"cast({landing_column} as {datatype}) as {norm_column}")
+                else:
+                    print(f"{landing_column} not found in landing dim_stages table, casting {norm_column} as null")
+                    columns.append(f"cast(null as {datatype}) as {norm_column}")
+        else:
+            # If tenant is not in preferences, iterate over "Default" dim_stages
+            for column in self.preferences["Default"]["dim_stages"]:
+                norm_column = column["norm_column"]
+                landing_column = column["selected_landing_column"]
+
+                # Get the data type from column_type_inputs
+                datatype = column_type_inputs.get(norm_column, "string")
+
+                # Check if the landing column exists in the landing df
+                if landing_column in landing_df.columns:
+                    columns.append(f"cast({landing_column} as {datatype}) as {norm_column}")
+                else:
+                    print(f"{landing_column} not found in landing dim_stages table, casting {norm_column} as null")
+                    columns.append(f"cast(null as {datatype}) as {norm_column}")
+
+        # Creates string from column list
+        columns_string = ",".join(columns)
+
+        id_col = None
+        for column in self.preferences[self.tenant]["dim_stages"]:
+            if column["norm_column"] == "id":
+                id_col = column["selected_landing_column"]
+
+        # SQL Query to use
+        query = f"""
+                    SELECT
+                        CAST(CONCAT(tenant,"-",Id) AS string) stage_id__sm,
+                        {columns_string},
+                        CAST('salesforce' AS string) data_source__sm
+                     FROM {self.salesforce_dim_stages_path}
+                     WHERE tenant = '{self.tenant}';
+                    """
+        sf_dim_stages_df = self.spark.sql(query)
+
+        assertSchemaEqual(sf_dim_stages_df.schema, self.dim_stages_crm_schema)
+
+        pk_count = sf_dim_stages_df.groupBy("stage_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in stage_id__sm column"
+
+        return sf_dim_stages_df
+    
+class NormalizedToProcessedCRM:
+
+    def __init_schema__(self):
+        '''
+        This defines the schema of accounts, opportunity, and user tables to later test the schema of the created tables
+        '''
+        self.accounts_crm_schema = T.StructType(
+            [
+                T.StructField('id', T.StringType(), False),
+                T.StructField('name', T.StringType(), True),
+                T.StructField('parent_id', T.StringType(), True),
+                T.StructField('created_date', T.TimestampType(), True),
+                T.StructField('owner_id', T.StringType(), True),
+                T.StructField('industry', T.StringType(), True),
+                T.StructField('is_partner', T.BooleanType(), True),
+                T.StructField('account_id__sm', T.StringType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True),
+                T.StructField('min_sql_date', T.TimestampType(), True),
+                T.StructField('min_sql_date_won', T.TimestampType(), True),
+                T.StructField('min_mrr_date', T.TimestampType(), True)
+            ]
+        )
+        self.opportunity_crm_schema = T.StructType(
+            [
+                T.StructField('id', T.StringType(), False),  
+                T.StructField('account_id', T.StringType(), True),            
+                T.StructField('name', T.StringType(), True),                
+                T.StructField('stage_name', T.StringType(), True),            
+                T.StructField('amount', T.DoubleType(), True),              
+                T.StructField('close_date', T.TimestampType(), True),             
+                T.StructField('type', T.StringType(), True),                  
+                T.StructField('is_closed', T.BooleanType(), True),             
+                T.StructField('description', T.StringType(), True),           
+                T.StructField('is_won', T.BooleanType(), True),                
+                T.StructField('created_date', T.TimestampType(), True),        
+                T.StructField('last_modified_date', T.TimestampType(), True),   
+                T.StructField('tenant', T.StringType(), True),               
+                T.StructField('lost_reason', T.StringType(), True),            
+                T.StructField('product', T.StringType(), True),  
+                T.StructField('sql_date', T.TimestampType(), True),            
+                T.StructField('source_tier1', T.StringType(), True),
+                T.StructField('source_tier2', T.StringType(), True),
+                T.StructField('source_tier3', T.StringType(), True),
+                T.StructField('cohort_date', T.DateType(), True),
+                T.StructField('cohort_month', T.DateType(), True),
+                T.StructField('days_to_close', T.IntegerType(), True),
+                T.StructField('owner_name', T.StringType(), True),
+                T.StructField('last_modified_by', T.StringType(), True),
+                T.StructField('new_or_existing', T.StringType(), True),
+                T.StructField('referral_id', T.StringType(), True),
+                T.StructField('termination_date', T.TimestampType(), True),
+                T.StructField('mrr_end_date', T.TimestampType(), True),
+                T.StructField('mrr_start_date', T.TimestampType(), True),
+                T.StructField('opportunity_id__sm', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True),
+                T.StructField('account_id__sm', T.StringType(), True),
+                T.StructField('lead_source_id__sm', T.StringType(), True),
+                T.StructField('lead_type_id__sm', T.StringType(), True),
+                T.StructField('term_length_months', T.StringType(), True),
+                T.StructField('arr_amount', T.DecimalType(), True)
+            ]
+        )
+
+        self.user_crm_schema = T.StructType(
+            [
+                T.StructField('id', T.StringType(), False),
+                T.StructField('name', T.StringType(), True),
+                T.StructField('username', T.StringType(), True),
+                T.StructField('email', T.StringType(), True),
+                T.StructField('title', T.StringType(), True),
+                T.StructField('user_id__sm', T.StringType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True)
+            ]
+        )
+        
+        self.dim_leadsource_schema = T.StructType( 
+            [
+                T.StructField('lead_source', T.StringType(), True),
+                T.StructField('type_sort', T.IntegerType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('lead_source_id__sm', T.StringType(), True),
+                T.StructField('source_tier1', T.StringType(), True),
+                T.StructField('source_tier2', T.StringType(), True),
+                T.StructField('source_tier3', T.StringType(), True)
+            ]
+        )
+        self.dim_leadtype_schema = T.StructType( 
+            [                                
+                T.StructField('lead_type', T.StringType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('lead_type_id__sm', T.StringType(), True)
+            ]
+        )
+        self.dim_stages_crm_schema = T.StructType(
+            [
+                T.StructField('stage_id__sm', T.StringType(), False),
+                T.StructField('stage_id', T.StringType(), True),
+                T.StructField('stage_name', T.StringType(), True),
+                T.StructField('stage_order_number', T.IntegerType(), True),
+                T.StructField('pipeline_id', T.StringType(), True),
+                T.StructField('pipeline_name', T.StringType(), True),
+                T.StructField('deal_probability', T.IntegerType(), True),
+                T.StructField('rotten_days', T.IntegerType(), True),
+                T.StructField('date_added', T.DateType(), True),
+                T.StructField('date_updated', T.DateType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True)            
+            ]
+        )
+
+    def __init__(self, spark_session, env, tenant, interval):
+        self.spark = spark_session
+        self.env = env
+        self.tenant = tenant 
+        self.interval = interval
+        self.norm_accounts_path = f"{self.env}.norm_crm.accounts"
+        self.norm_opportunity_path = f"{self.env}.norm_crm.opportunity"
+        self.norm_user_path = f"{self.env}.norm_crm.user"
+        self.norm_dim_stages_path = f"{self.env}.norm_crm.dim_stages"
+        self.__init_schema__()
+    
+    def processed_accounts(self):
+        """
+        This method functions to return a df that is processed_accounts
+        """
+        query = f"""
+            SELECT 
+                a.id,
+                a.name,
+                a.parent_id,
+                CAST(a.created_date AS TIMESTAMP) created_date,
+                a.owner_id,
+                a.industry,
+                a.is_partner,
+                a.account_id__sm,
+                a.tenant,
+                a.data_source__sm,
+                MIN(b.sql_date) AS min_sql_date, 
+                MIN(CASE WHEN b.is_won = TRUE THEN b.sql_date ELSE NULL END) AS min_sql_date_won,
+                MIN(b.mrr_start_date) AS min_mrr_date
+            FROM 
+                {self.norm_accounts_path} a
+            LEFT JOIN 
+                {self.norm_opportunity_path} b
+            ON 
+                a.id = b.account_id
+            WHERE a.tenant = '{self.tenant}'
+            GROUP BY ALL;
+        """
+
+        processed_accounts_df = self.spark.sql(query)
+
+        assertSchemaEqual(processed_accounts_df.schema, self.accounts_crm_schema)
+
+        pk_count = processed_accounts_df.groupBy("account_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in account_id__sm column"
+
+        return processed_accounts_df
+
+    def processed_opportunity(self):
+        """
+        This method functions to return a df that is processed_opportunity
+        """
+        query = f"""
+            WITH new_opps AS (
+                SELECT *
+                FROM {self.norm_opportunity_path}
+                WHERE tenant = '{self.tenant}'
+            ),
+            dim_leadsource AS (
+                SELECT 
+                    tenant,
+                    COALESCE(source_tier1, 'Unknown') AS source_tier1,
+                    COALESCE(source_tier2, 'Unknown') AS source_tier2,
+                    COALESCE(source_tier3, 'Unknown') AS source_tier3,
+                    CONCAT(tenant, '-', LPAD(ROW_NUMBER() OVER (PARTITION BY tenant ORDER BY (SELECT NULL)), 8, '0')) AS lead_source_id__sm,
+                    CONCAT_WS('-', tenant, COALESCE(source_tier1, 'Unknown'), COALESCE(source_tier2, 'Unknown'), COALESCE(source_tier3, 'Unknown')) AS temp_pk
+                FROM (
+                    SELECT DISTINCT
+                        tenant,
+                        source_tier1,
+                        source_tier2,
+                        source_tier3
+                    FROM {self.norm_opportunity_path}
+                    WHERE tenant = '{self.tenant}'
+                )
+            ),
+            dim_leadtype AS (
+                SELECT 
+                    tenant,
+                    COALESCE(type, 'Unknown') AS lead_type,
+                    CONCAT(tenant, '-', LPAD(ROW_NUMBER() OVER (PARTITION BY tenant ORDER BY (SELECT NULL)), 8, '0')) AS lead_type_id__sm
+                FROM (
+                    SELECT DISTINCT
+                        tenant,
+                        type
+                    FROM {self.norm_opportunity_path}
+                    WHERE tenant = '{self.tenant}'
+                )
+            ),
+            new_opportunity AS (
+                SELECT 
+                    a.*,
+                    b.lead_source_id__sm,
+                    c.lead_type_id__sm
+                FROM new_opps a
+                LEFT JOIN dim_leadsource b 
+                    ON CONCAT_WS('-', a.tenant, COALESCE(a.source_tier1, 'Unknown'), COALESCE(a.source_tier2, 'Unknown'), COALESCE(a.source_tier3, 'Unknown')) = b.temp_pk
+                LEFT JOIN dim_leadtype c 
+                    ON COALESCE(a.type, 'Unknown') = c.lead_type AND a.tenant = c.tenant
+            )
+            SELECT 
+                id,
+                account_id,
+                name,
+                stage_name,
+                amount,
+                close_date,
+                type,
+                is_closed,
+                description,
+                is_won,
+                created_date,
+                last_modified_date,
+                tenant,
+                lost_reason,
+                product,
+                sql_date,
+                source_tier1,
+                source_tier2,
+                source_tier3,
+                cohort_date,
+                cohort_month,
+                days_to_close,
+                owner_name,
+                last_modified_by,
+                new_or_existing,
+                referral_id,
+                termination_date,
+                mrr_end_date,
+                mrr_start_date,
+                opportunity_id__sm,
+                data_source__sm,
+                account_id__sm,
+                lead_source_id__sm,
+                lead_type_id__sm,
+                term_length_months,
+                arr_amount
+            FROM new_opportunity;
+        """
+
+        processed_opportunity_df = self.spark.sql(query)
+
+        assertSchemaEqual(processed_opportunity_df.schema, self.opportunity_crm_schema)
+
+        pk_count = processed_opportunity_df.groupBy("opportunity_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in opportunity_id__sm column"
+
+        return processed_opportunity_df
+
+    def processed_user(self):
+        """
+        This method functions to return a df that is processed_user
+        """
+        query = f""" 
+                SELECT
+                id,
+                name,
+                username,
+                email,
+                title,
+                user_id__sm,
+                tenant,
+                data_source__sm
+                FROM {self.norm_user_path}
+                WHERE tenant = '{self.tenant}';
+            """
+        processed_user_df = self.spark.sql(query)
+
+        assertSchemaEqual(processed_user_df.schema, self.user_crm_schema)
+
+        pk_count = processed_user_df.groupBy("user_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in user_id__sm column"
+        
+        return processed_user_df
+    
+    def processed_dim_leadsource(self):
+        """
+        This method functions to return a df that is processed_dim_leadsource
+        """
+        query = f"""
+                    WITH distinct_table AS (
+                        SELECT
+                            DISTINCT
+                                tenant,
+                                COALESCE(source_tier1, "Unknown") AS source_tier1,
+                                COALESCE(source_tier2, "Unknown") AS source_tier2,
+                                COALESCE(source_tier3, "Unknown") AS source_tier3
+                        FROM {self.norm_opportunity_path}
+                        WHERE tenant = '{self.tenant}'
+                    ),
+                    add_pk AS (
+                        SELECT 
+                            *,
+                            lpad(row_number() OVER (ORDER BY (SELECT NULL)),8,'0') AS row_index
+                        FROM distinct_table
+                    ),
+                    temp_table AS (
+                        SELECT 
+                            tenant,
+                            concat(tenant,"-",row_index) AS lead_source_id__sm,
+                            concat_ws('-',tenant,source_tier1,source_tier2,source_tier3) AS temp_pk,
+                            source_tier1,
+                            source_tier2,
+                            source_tier3
+                        FROM add_pk
+                    )
+                    select
+                        CAST(source_tier1 AS string) lead_source,
+                        ROW_NUMBER() OVER (ORDER BY source_tier2) AS type_sort,
+                        tenant,
+                        lead_source_id__sm,
+                        source_tier1,
+                        source_tier2,
+                        source_tier3
+                    from temp_table;
+                    """
+
+        processed_dim_leadsource_df = self.spark.sql(query)
+
+        # Check for duplicates in the lead_source_id__sm column
+        pk_count = processed_dim_leadsource_df.groupBy("lead_source_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in lead_source_id__sm column"
+
+        # Check for no nulls in the lead_source_id__sm column
+        assert processed_dim_leadsource_df.filter(processed_dim_leadsource_df["lead_source_id__sm"].isNull()).count() == 0, "Null values found in lead_source_id__sm column"
+
+        assertSchemaEqual(processed_dim_leadsource_df.schema, self.dim_leadsource_schema)
+
+        return processed_dim_leadsource_df
+        
+    def processed_dim_leadtype(self):
+        """
+        This method functions to return a df that is processed_dim_leadtype
+        """
+        query = f"""
+                WITH distinct_lead_type AS (
+            SELECT DISTINCT 
+                COALESCE(type, 'Unknown') AS lead_type,
+                tenant
+            FROM {self.norm_opportunity_path}
+            WHERE tenant = '{self.tenant}'
+        ),
+        add_pk AS (
+            SELECT 
+                *,
+                LPAD(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)), 8, '0') AS row_index
+            FROM distinct_lead_type
+        ),
+        temp_table AS (
+            SELECT 
+                CONCAT(tenant, '-', row_index) AS lead_type_id__sm,
+                row_index AS lead_type_id,
+                lead_type,
+                tenant
+            FROM add_pk
+        )
+        SELECT
+            lead_type,
+            tenant,
+            lead_type_id__sm
+        FROM temp_table;
+        """
+
+        processed_dim_leadtype_df = self.spark.sql(query)
+        
+        # Check for duplicates in the lead_type_id__sm column
+
+        pk_count = processed_dim_leadtype_df.groupBy("lead_type_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in lead_type_id__sm column"
+
+        # Check for no nulls in the lead_type_id__sm column
+        assert processed_dim_leadtype_df.filter(processed_dim_leadtype_df["lead_type_id__sm"].isNull()).count() == 0, "Null values found in lead_type_id__sm column"
+
+        assertSchemaEqual(processed_dim_leadtype_df.schema, self.dim_leadtype_schema)
+
+        return processed_dim_leadtype_df
+
+    def processed_dim_stages(self):
+        """
+        This method functions to return a df that is processed_dim_stages
+        """
+        query = f""" 
+                SELECT *
+                FROM {self.norm_dim_stages_path}
+                WHERE tenant = '{self.tenant}';
+            """
+        processed_dim_stages_df = self.spark.sql(query)
+
+        assertSchemaEqual(processed_dim_stages_df.schema, self.dim_stages_crm_schema)
+
+        pk_count = processed_dim_stages_df.groupBy("stage_id__sm").count()
+        assert pk_count.filter(pk_count["count"] > 1).count() == 0, "Duplicates found in stage_id__sm column"
+
+        return processed_dim_stages_df
+
+class CuratedCRMProcessor:
+
+    def __init_schema__(self):
+        '''
+        This defines the schema of all necessary tables in curated CRM class
+        '''
+        self.accounts_crm_schema = T.StructType(
+            [
+                T.StructField('id', T.StringType(), False),
+                T.StructField('name', T.StringType(), True),
+                T.StructField('parent_id', T.StringType(), True),
+                T.StructField('created_date', T.DateType(), True),
+                T.StructField('owner_id', T.StringType(), True),
+                T.StructField('industry', T.StringType(), True),
+                T.StructField('is_partner', T.BooleanType(), True),
+                T.StructField('account_id__sm', T.StringType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True),
+                T.StructField('min_sql_date', T.DateType(), True),
+                T.StructField('min_sql_date_won', T.DateType(), True),
+                T.StructField('min_mrr_date', T.DateType(), True)
+            ]
+        )
+        self.opportunity_crm_schema = T.StructType(
+            [
+                T.StructField('id', T.StringType(), False),  
+                T.StructField('account_id', T.StringType(), True),            
+                T.StructField('name', T.StringType(), True),                
+                T.StructField('stage_name', T.StringType(), True),            
+                T.StructField('amount', T.DoubleType(), True),              
+                T.StructField('close_date', T.DateType(), True),             
+                T.StructField('type', T.StringType(), True),                  
+                T.StructField('is_closed', T.BooleanType(), True),             
+                T.StructField('description', T.StringType(), True),           
+                T.StructField('is_won', T.BooleanType(), True),                
+                T.StructField('created_date', T.DateType(), True),        
+                T.StructField('last_modified_date', T.DateType(), True),   
+                T.StructField('tenant', T.StringType(), True),               
+                T.StructField('lost_reason', T.StringType(), True),            
+                T.StructField('product', T.StringType(), True),  
+                T.StructField('sql_date', T.DateType(), True),            
+                T.StructField('source_tier1', T.StringType(), True),
+                T.StructField('source_tier2', T.StringType(), True),
+                T.StructField('source_tier3', T.StringType(), True),
+                T.StructField('cohort_date', T.DateType(), True),
+                T.StructField('cohort_month', T.DateType(), True),
+                T.StructField('days_to_close', T.IntegerType(), True),
+                T.StructField('owner_name', T.StringType(), True),
+                T.StructField('last_modified_by', T.StringType(), True),
+                T.StructField('new_or_existing', T.StringType(), True),
+                T.StructField('referral_id', T.StringType(), True),
+                T.StructField('termination_date', T.DateType(), True),
+                T.StructField('mrr_end_date', T.DateType(), True),
+                T.StructField('mrr_start_date', T.DateType(), True),
+                T.StructField('opportunity_id__sm', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True),
+                T.StructField('account_id__sm', T.StringType(), True),
+                T.StructField('lead_source_id__sm', T.StringType(), True),
+                T.StructField('lead_type_id__sm', T.StringType(), True),
+                T.StructField('term_length_months', T.StringType(), True),
+                T.StructField('arr_amount', T.DecimalType(), True)
+            ]
+        )
+        self.user_crm_schema = T.StructType(
+            [
+                T.StructField('id', T.StringType(), False),
+                T.StructField('name', T.StringType(), True),
+                T.StructField('username', T.StringType(), True),
+                T.StructField('email', T.StringType(), True),
+                T.StructField('title', T.StringType(), True),
+                T.StructField('user_id__sm', T.StringType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True)
+            ]
+        )
+        self.dim_leadsource_schema = T.StructType( 
+            [
+                T.StructField('lead_source', T.StringType(), True),
+                T.StructField('type_sort', T.IntegerType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('lead_source_id__sm', T.StringType(), True),
+                T.StructField('source_tier1', T.StringType(), True),
+                T.StructField('source_tier2', T.StringType(), True),
+                T.StructField('source_tier3', T.StringType(), True)
+            ]
+        )
+        self.dim_leadtype_schema = T.StructType( 
+            [                                
+                T.StructField('lead_type', T.StringType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('lead_type_id__sm', T.StringType(), True)
+            ]
+        )
+        self.dim_stages_crm_schema = T.StructType(
+            [
+                T.StructField('stage_id__sm', T.StringType(), False),
+                T.StructField('stage_id', T.StringType(), True),
+                T.StructField('stage_name', T.StringType(), True),
+                T.StructField('stage_order_number', T.IntegerType(), True),
+                T.StructField('pipeline_id', T.StringType(), True),
+                T.StructField('pipeline_name', T.StringType(), True),
+                T.StructField('deal_probability', T.IntegerType(), True),
+                T.StructField('rotten_days', T.IntegerType(), True),
+                T.StructField('date_added', T.DateType(), True),
+                T.StructField('date_updated', T.DateType(), True),
+                T.StructField('tenant', T.StringType(), True),
+                T.StructField('data_source__sm', T.StringType(), True)            
+            ]
+        )
+        self.last_updated_crm_schema = T.StructType(
+            [
+                T.StructField('tenant', T.StringType(), False),
+                T.StructField('last_update', T.DateType(), True)
+            ]
+        )
+        self.pipeline_summary_crm_schema = T.StructType(
+            [
+                T.StructField('tenant', T.StringType(), False),
+                T.StructField('sql_month', T.DateType(), True),
+                T.StructField('account_type', T.StringType(), True),
+                T.StructField('lead_source', T.StringType(), True),
+                T.StructField('lead_type', T.StringType(), True),
+                T.StructField('total_accounts', T.DecimalType(18, 2), True),
+                T.StructField('sum_days_to_close__all_closed', T.DecimalType(18, 2), True),
+                T.StructField('sum_days_to_close__closed_won', T.DecimalType(18, 2), True),
+                T.StructField('sum_days_to_close__closed_lost', T.DecimalType(18, 2), True),
+                T.StructField('total_accounts_won', T.DecimalType(18, 2), True),
+                T.StructField('total_opportunity', T.DecimalType(18, 2), True),
+                T.StructField('net_opportunity_captured', T.DecimalType(18, 2), True),
+                T.StructField('total_accounts_closed', T.DecimalType(18, 2), True)
+            ]
+        )
+        self.cohort_summary_by_source_schema = T.StructType(
+            [                               
+                T.StructField('tenant', T.StringType(), False),
+                T.StructField('sql_month', T.DateType(), False),
+                T.StructField('source_tier1', T.StringType(), False),
+                T.StructField('new_leads', T.DecimalType(18,2), True),
+                T.StructField('new_leads_won', T.DecimalType(18,2), True),
+                T.StructField('new_lead_conversion', T.DecimalType(18,2), True),
+                T.StructField('avg_days_to_close_new', T.DecimalType(18,2), True),
+                T.StructField('new_lead_value', T.DecimalType(18,2), True),
+                T.StructField('new_lead_value_won', T.DecimalType(18,2), True),
+                T.StructField('new_lead_value_conversion', T.DecimalType(18,2), True),
+                T.StructField('renewal_leads', T.DecimalType(18,2), True),
+                T.StructField('renewal_leads_won', T.DecimalType(18,2), True),
+                T.StructField('renewal_lead_conversion', T.DecimalType(18,2), True),
+                T.StructField('avg_days_to_close_renew', T.DecimalType(18,2), True),
+                T.StructField('renewal_lead_value', T.DecimalType(18,2), True),
+                T.StructField('renewal_lead_value_won', T.DecimalType(18,2), True),
+                T.StructField('renewal_lead_value_conversion', T.DecimalType(18,2), True),
+                T.StructField('total_open_leads', T.DecimalType(18,2), True),
+                T.StructField('total_open_lead_value', T.DecimalType(18,2), True),
+                T.StructField('lost_opportunity_value', T.DecimalType(18,2), True)
+            ]
+        )
+        self.days_to_close_analysis_schema = T.StructType(
+            [                      
+                T.StructField('tenant', T.StringType(), False),          
+                T.StructField('sql_month', T.DateType(), False),
+                T.StructField('new_leads', T.DecimalType(18,2), True),
+                T.StructField('new_leads_won', T.DecimalType(18,2), True),
+                T.StructField('new_lead_conversion', T.DecimalType(18,2), True),
+                T.StructField('30_day_close', T.DecimalType(18,2), True),
+                T.StructField('60_day_close', T.DecimalType(18,2), True),
+                T.StructField('90_day_close', T.DecimalType(18,2), True),
+                T.StructField('120_day_close', T.DecimalType(18,2), True),
+                T.StructField('30_day_close_pct', T.DecimalType(18,2), True),
+                T.StructField('60_day_close_pct', T.DecimalType(18,2), True),
+                T.StructField('90_day_close_pct', T.DecimalType(18,2), True),
+                T.StructField('120_day_close_pct', T.DecimalType(18,2), True),
+                T.StructField('open_pct', T.DecimalType(18,2), True),
+                T.StructField('new_lead_value', T.DecimalType(18,2), True),
+                T.StructField('new_lead_value_won', T.DecimalType(18,2), True),
+                T.StructField('new_lead_value_conversion', T.DecimalType(18,2), True),
+                T.StructField('total_open_leads', T.DecimalType(18,2), True),
+                T.StructField('total_open_lead_value', T.DecimalType(18,2), True)
+            ]
+        )
+        self.funnel_by_stage_schema = T.StructType(
+            [
+                T.StructField('tenant', T.StringType(), False),
+                T.StructField('stage_name', T.StringType(), True),
+                T.StructField('count', T.IntegerType(), True)
+            ]
+        )
+
+    def __init__(self, spark_session, env, tenant, interval):
+        self.spark = spark_session
+        self.env = env
+        self.tenant = tenant 
+        self.interval = interval
+        self.processed_accounts_path = f"{self.env}.processed_crm.accounts"
+        self.processed_opportunity_path = f"{self.env}.processed_crm.opportunity"
+        self.processed_user_path = f"{self.env}.processed_crm.user"
+        self.processed_dim_leadsource_path = f"{self.env}.processed_crm.dim_leadsource"
+        self.processed_dim_leadtype_path = f"{self.env}.processed_crm.dim_leadtype"
+        self.processed_dim_stages_path = f"{self.env}.processed_crm.dim_stages"
+        self.__init_schema__()
+
+    def curated_accounts(self):
+        """
+        This method functions to return a df that is accounts
+        """
+        query = f"""
+                SELECT
+                id,
+                name,
+                parent_id,
+                CAST(created_date AS date) created_date,
+                owner_id,
+                industry,
+                is_partner,
+                account_id__sm,
+                tenant,
+                data_source__sm,
+                CAST(min_sql_date AS date) min_sql_date,
+                CAST(min_sql_date_won AS date) min_sql_date_won,
+                CAST(min_mrr_date AS date) min_mrr_date
+                FROM {self.processed_accounts_path}
+                WHERE tenant = '{self.tenant}';
+                """
+        accounts_df = self.spark.sql(query)
+
+        # Validate schema
+        assertSchemaEqual(accounts_df.schema, self.accounts_crm_schema)
+
+        # Get distinct counts from normalized and processed zones
+        accs_norm_count_df = self.spark.sql(f"""
+            SELECT COUNT(DISTINCT account_id__sm) AS accs_norm_count
+            FROM dev.norm_crm.accounts
+            WHERE tenant = '{self.tenant}';
+        """)
+        accs_norm_count = accs_norm_count_df.collect()[0]['accs_norm_count']
+
+        accs_processed_count_df = self.spark.sql(f"""
+            SELECT COUNT(DISTINCT account_id__sm) AS accs_processed_count
+            FROM dev.processed_crm.accounts
+            WHERE tenant = '{self.tenant}';
+        """)
+        accs_processed_count = accs_processed_count_df.collect()[0]['accs_processed_count']
+
+        accs_curated_count = accounts_df.filter(accounts_df.tenant == self.tenant).select("account_id__sm").distinct().count()
+
+        # Assert distinct counts are equal for accounts
+        assert accs_norm_count == accs_processed_count, "Distinct accounts ID counts do not match between normalized and processed zones."
+        assert accs_processed_count == accs_curated_count, "Distinct accounts ID counts do not match between processed and curated zones."
+        return accounts_df
+    
+    def curated_opportunity(self):
+        """
+        This method functions to return a df that is opportunity
+        """
+        query = f"""
+                SELECT
+                id,
+                account_id,
+                name,
+                stage_name,
+                amount,
+                CAST(close_date AS date) close_date,
+                type,
+                is_closed,
+                description,
+                is_won,
+                CAST(created_date AS date) created_date,
+                CAST(last_modified_date AS date) last_modified_date,
+                tenant,
+                lost_reason,
+                product,
+                CAST(sql_date AS date) sql_date,
+                source_tier1,
+                source_tier2,
+                source_tier3,
+                cohort_date,
+                cohort_month,
+                days_to_close,
+                owner_name,
+                last_modified_by,
+                new_or_existing,
+                referral_id,
+                CAST(termination_date AS date) termination_date,
+                CAST(mrr_end_date AS date) mrr_end_date,
+                CAST(mrr_start_date AS date) mrr_start_date,
+                opportunity_id__sm,
+                data_source__sm,
+                account_id__sm,
+                lead_source_id__sm,
+                lead_type_id__sm,
+                term_length_months,
+                arr_amount
+                FROM {self.processed_opportunity_path}
+                WHERE tenant = '{self.tenant}';
+                """
+        opportunity_df = self.spark.sql(query)
+
+        # Validate schema
+        assertSchemaEqual(opportunity_df.schema, self.opportunity_crm_schema)
+
+        # Get distinct counts from normalized and processed zones
+        opps_norm_count_df = self.spark.sql(f"""
+            SELECT COUNT(DISTINCT opportunity_id__sm) AS opps_norm_count
+            FROM dev.norm_crm.opportunity
+            WHERE tenant = '{self.tenant}';
+        """)
+        opps_norm_count = opps_norm_count_df.collect()[0]['opps_norm_count']
+
+        opps_processed_count_df = self.spark.sql(f"""
+            SELECT COUNT(DISTINCT opportunity_id__sm) AS opps_processed_count
+            FROM dev.processed_crm.opportunity
+            WHERE tenant = '{self.tenant}';
+        """)
+        opps_processed_count = opps_processed_count_df.collect()[0]['opps_processed_count']
+
+        opps_curated_count = opportunity_df.filter(opportunity_df.tenant == self.tenant).select("opportunity_id__sm").distinct().count()
+
+        # Assert distinct counts are equal for opportunity
+        assert opps_norm_count == opps_processed_count, "Distinct opportunity ID counts do not match between normalized and processed zones."
+        
+        assert opps_processed_count == opps_curated_count, "Distinct opportunity ID counts do not match between processed and curated zones."
+
+        ## Assert amount field is the same across all zones
+
+        amount_norm_sum_df = self.spark.sql(f"""
+            SELECT CAST(SUM(amount) AS decimal(18,2)) AS amount_norm_sum
+            FROM dev.norm_crm.opportunity
+            WHERE tenant = '{self.tenant}';
+        """)
+        amount_norm_sum = amount_norm_sum_df.select(round("amount_norm_sum", 2).alias("amount_norm_sum")).collect()[0]['amount_norm_sum']
+
+        amount_processed_sum_df = self.spark.sql(f"""
+            SELECT CAST(SUM(amount) AS decimal(18,2)) AS amount_processed_sum
+            FROM dev.processed_crm.opportunity
+            WHERE tenant = '{self.tenant}';
+        """)
+        amount_processed_sum = amount_processed_sum_df.select(round("amount_processed_sum", 2).alias("amount_processed_sum")).collect()[0]['amount_processed_sum']
+
+        tolerance = 0.01
+
+        assert math.fabs(amount_norm_sum - amount_processed_sum) <= tolerance, "Sum of amounts do not match between normalized and processed zones."
+
+        return opportunity_df
+
+    def curated_user(self):
+        """
+        This method functions to return a df that is user
+        """
+        query = f"""
+                SELECT *
+                FROM {self.processed_user_path}
+                WHERE tenant = '{self.tenant}';
+                """
+        user_df = self.spark.sql(query)
+
+        # Validate schema
+        assertSchemaEqual(user_df.schema, self.user_crm_schema)
+
+        # Get distinct counts from normalized and processed zones
+        user_norm_count_df = self.spark.sql(f"""
+            SELECT COUNT(DISTINCT user_id__sm) AS user_norm_count
+            FROM dev.norm_crm.user
+            WHERE tenant = '{self.tenant}';
+        """)
+        user_norm_count = user_norm_count_df.collect()[0]['user_norm_count']
+
+        user_processed_count_df = self.spark.sql(f"""
+            SELECT COUNT(DISTINCT user_id__sm) AS user_processed_count
+            FROM dev.processed_crm.user
+            WHERE tenant = '{self.tenant}';
+        """)
+        user_processed_count = user_processed_count_df.collect()[0]['user_processed_count']
+        
+        user_curated_count = user_df.filter(user_df.tenant == self.tenant).select("user_id__sm").distinct().count()
+
+        # Assert distinct counts are equal for user
+        assert user_norm_count == user_processed_count, "Distinct user ID counts do not match between normalized and processed zones."
+
+        assert user_processed_count == user_curated_count, "Distinct user ID counts do not match between processed and curated zones."
+        
+        return user_df
+    
+    def curated_dim_leadsource(self):
+        """
+        This method functions to return a df that is dim_leadsource
+        """
+        query = f"""
+                SELECT *
+                FROM {self.processed_dim_leadsource_path}
+                WHERE tenant = '{self.tenant}';
+                """
+        dim_leadsource_df = self.spark.sql(query)
+
+        # Validate schema
+        assertSchemaEqual(dim_leadsource_df.schema, self.dim_leadsource_schema)
+
+        # Assert Processed and Curated PK counts are the same
+
+        dim_leadsource_processed_count_df = self.spark.sql(f"""
+            SELECT COUNT(DISTINCT lead_source_id__sm) AS dim_leadsource_processed_count
+            FROM dev.processed_crm.dim_leadsource
+            WHERE tenant = '{self.tenant}';
+        """)
+        dim_leadsource_processed_count = dim_leadsource_processed_count_df.collect()[0]['dim_leadsource_processed_count']
+        
+        dim_leadsource_curated_count = dim_leadsource_df.filter(dim_leadsource_df.tenant == self.tenant).select("lead_source_id__sm").distinct().count()
+
+        assert dim_leadsource_processed_count == dim_leadsource_curated_count, "Distinct dim_leadsource ID counts do not match between processed and curated zones."
+
+        return dim_leadsource_df
+    
+    def curated_dim_leadtype(self):
+        """
+        This method functions to return a df that is dim_leadtype
+        """
+        query = f"""
+                SELECT *
+                FROM {self.processed_dim_leadtype_path}
+                WHERE tenant = '{self.tenant}';
+                """
+        dim_leadtype_df = self.spark.sql(query)
+
+        # Validate schema
+        assertSchemaEqual(dim_leadtype_df.schema, self.dim_leadtype_schema)
+
+        # Assert Processed and Curated PK counts are the same
+        dim_leadtype_processed_count_df = self.spark.sql(f"""
+            SELECT COUNT(DISTINCT lead_type_id__sm) AS dim_leadtype_processed_count
+            FROM dev.processed_crm.dim_leadtype
+            WHERE tenant = '{self.tenant}';
+        """)
+        dim_leadtype_processed_count = dim_leadtype_processed_count_df.collect()[0]['dim_leadtype_processed_count']
+        
+        dim_leadtype_curated_count = dim_leadtype_df.filter(dim_leadtype_df.tenant == self.tenant).select("lead_type_id__sm").distinct().count()
+
+        assert dim_leadtype_processed_count == dim_leadtype_curated_count, "Distinct dim_leadtype ID counts do not match between processed and curated zones."
+
+        return dim_leadtype_df
+    
+    def curated_dim_stages(self):
+        """
+        This method functions to return a df that is dim_stages
+        """
+        query = f"""
+                SELECT *
+                FROM {self.processed_dim_stages_path}
+                WHERE tenant = '{self.tenant}';
+                """
+        dim_stages_df = self.spark.sql(query)
+
+        # Validate schema
+        assertSchemaEqual(dim_stages_df.schema, self.dim_stages_crm_schema)
+
+        # Get distinct counts from normalized and processed zones
+        dim_stages_norm_count_df = self.spark.sql(f"""
+            SELECT COUNT(DISTINCT stage_id__sm) AS dim_stages_norm_count
+            FROM dev.norm_crm.dim_stages
+            WHERE tenant = '{self.tenant}'
+        """)
+        dim_stages_norm_count = dim_stages_norm_count_df.collect()[0]['dim_stages_norm_count']
+
+        dim_stages_processed_count_df = self.spark.sql(f"""
+            SELECT COUNT(DISTINCT stage_id__sm) AS dim_stages_processed_count
+            FROM dev.processed_crm.dim_stages
+            WHERE tenant = '{self.tenant}'
+        """)
+        dim_stages_processed_count = dim_stages_processed_count_df.collect()[0]['dim_stages_processed_count']
+
+        # Get distinct count from curated stages
+        dim_stages_curated_count = dim_stages_df.filter(dim_stages_df.tenant == self.tenant).select("stage_id__sm").distinct().count()
+
+        # Assert distinct counts are equal for dim_stages
+        assert dim_stages_norm_count == dim_stages_processed_count, "Distinct dim_stages ID counts do not match between normalized and processed zones."
+        assert dim_stages_processed_count == dim_stages_curated_count, "Distinct dim_stages ID counts do not match between processed and curated zones."
+
+        return dim_stages_df
+            
+    def curated_last_updated(self):
+        """
+        This method functions to return a df that is last_updated
+        """
+        query = f"""
+        		SELECT 
+                    tenant,
+                    cast(last_modified_date as date) last_update
+        		FROM {self.processed_opportunity_path}
+                WHERE tenant = '{self.tenant}';
+				"""
+        last_updated_df = self.spark.sql(query)
+
+        assertSchemaEqual(last_updated_df.schema, self.last_updated_crm_schema)
+
+        return last_updated_df
+
+    def curated_pipeline_summary(self):
+        """
+        This method functions to return a df that is pipeline_summary
+        """
+
+        query = f"""
+                SELECT
+                    tenant,
+                    CAST(last_day(sql_date) AS date) sql_month, 
+                    new_or_existing AS account_type,
+                    source_tier1 AS lead_source,
+                    type AS lead_type,
+                    CAST(COUNT(distinct account_id) AS decimal(18,2)) total_accounts,
+                    CAST(SUM(
+                        CASE
+                            WHEN is_closed = 'True'
+                            THEN days_to_close
+                        END
+                    ) AS decimal(18,2)) sum_days_to_close__all_closed,
+                    CAST(SUM(
+                        CASE
+                            WHEN is_closed = 'True' AND is_won = 'True'
+                            THEN days_to_close
+                        END
+                    ) AS decimal(18,2)) sum_days_to_close__closed_won,
+                    CAST(SUM(
+                        CASE
+                            WHEN is_closed = 'True' AND is_won = 'False'
+                            THEN days_to_close
+                        END
+                    ) AS decimal(18,2)) sum_days_to_close__closed_lost,
+                    CAST(COUNT(
+                        DISTINCT
+                        CASE 
+                            WHEN is_won = 'True'
+                            THEN account_id
+                        END
+                    ) AS decimal(18,2)) total_accounts_won,
+                    CAST(SUM(amount) AS decimal(18,2)) total_opportunity,
+                    CAST(SUM(
+                        CASE WHEN is_won = "True"
+                        THEN amount
+                        ELSE 0
+                    END
+                    ) AS decimal(18,2)) net_opportunity_captured,
+                    CAST(COUNT(
+                        DISTINCT
+                        CASE
+                            WHEN is_closed = "True"
+                            THEN account_id
+                        END
+                    ) AS decimal(18,2)) total_accounts_closed
+                FROM {self.processed_opportunity_path}
+                WHERE tenant = '{self.tenant}'
+                GROUP BY sql_date, account_type, source_tier1, lead_type, tenant
+                ORDER BY sql_date, account_type, source_tier1, lead_type;
+                """
+
+        pipeline_summary_df = self.spark.sql(query)
+
+        assertSchemaEqual(pipeline_summary_df.schema, self.pipeline_summary_crm_schema)
+
+        amount_processed_sum_df = self.spark.sql(f"""
+        SELECT ROUND(SUM(CAST(amount AS decimal(18,2))), 2) AS amount_sum
+            FROM {self.processed_opportunity_path}
+            WHERE tenant = '{self.tenant}';
+        """)
+        
+        amount_processed_sum = amount_processed_sum_df.select(round("amount_sum", 2).alias("amount_sum")).collect()[0]['amount_sum']
+
+        total_opportunity_curated_sum = pipeline_summary_df.agg(round(sum("total_opportunity"), 2).alias("total_opportunity_curated_sum")).collect()[0]["total_opportunity_curated_sum"]
+
+        assert amount_processed_sum == total_opportunity_curated_sum, "Sum of amount and total_opportunity_fields differ"
+        
+        return pipeline_summary_df
+    
+    
+    def curated_cohort_summary_by_source(self):
+        """
+        This Method functions to return a df that is cohort_summary_by_source
+        """
+
+        query = f"""
+                SELECT
+                    tenant,
+                    last_day(sql_date) sql_month, 
+                    source_tier1,
+                    CAST(COUNT(CASE WHEN new_or_existing = 'New' THEN 1 END) AS decimal(18,2)) new_leads,
+                    CAST(COUNT(CASE WHEN new_or_existing = 'New' AND is_won = 'True' THEN 1 END) AS decimal(18,2)) new_leads_won,
+                    CAST(COUNT(CASE WHEN new_or_existing = 'New' AND is_won = 'True' THEN 1 END) * 1.0 / COUNT(CASE WHEN new_or_existing = 'New' THEN 1 END) AS decimal(18,2)) new_lead_conversion,
+                    CAST(AVG(CASE WHEN is_closed = 'True' AND new_or_existing = 'New' THEN days_to_close END) AS decimal(18,2)) avg_days_to_close_new,
+                    CAST(SUM(CASE WHEN new_or_existing = 'New' THEN amount END) AS decimal(18,2)) new_lead_value,
+                    CAST(SUM(CASE WHEN new_or_existing = 'New' AND is_won = 'True' THEN amount END) AS decimal(18,2)) new_lead_value_won,
+                    CAST(SUM(CASE WHEN new_or_existing = 'New' AND is_won = 'True' THEN amount END) * 1.0 / SUM(CASE WHEN new_or_existing = 'New' THEN amount END) AS decimal(18,2)) new_lead_value_conversion,
+                    CAST(COUNT(CASE WHEN new_or_existing = 'Existing' THEN 1 END) AS decimal(18,2)) renewal_leads,
+                    CAST(SUM(CASE WHEN new_or_existing = 'Existing' AND is_won = 'True' THEN amount END) AS decimal(18,2)) renewal_leads_won,
+                    CAST(SUM(CASE WHEN new_or_existing = 'Existing' AND is_won = 'True' THEN amount END) * 1.0 / COUNT(CASE WHEN new_or_existing = 'Existing' THEN 1 END) AS decimal(18,2)) renewal_lead_conversion,
+                    CAST(AVG(CASE WHEN is_closed = 'True' AND new_or_existing = 'Existing' THEN days_to_close END) AS decimal(18,2)) avg_days_to_close_renew,
+                    CAST(SUM(CASE WHEN new_or_existing = 'Existing' THEN amount END) AS decimal(18,2)) renewal_lead_value,
+                    CAST(SUM(CASE WHEN new_or_existing = 'Existing' AND is_won = 'True' THEN amount END) AS decimal(18,2)) renewal_lead_value_won,
+                    CAST(SUM(CASE WHEN new_or_existing = 'Existing' AND is_won = 'True' THEN amount END) * 1.0 / SUM(CASE WHEN new_or_existing = 'Existing' THEN amount END) AS decimal(18,2)) renewal_lead_value_conversion,
+                    CAST(COUNT(CASE WHEN is_closed = 'False' THEN 1 END) AS decimal(18,2)) total_open_leads,
+                    CAST(SUM(CASE WHEN is_closed = 'False' THEN amount END) AS decimal(18,2)) total_open_lead_value,
+                    CAST(ROUND(COALESCE(SUM(CASE WHEN is_won = 'False' AND is_closed = 'True' THEN amount ELSE 0 END), 0), 2) AS decimal(18,2)) AS lost_opportunity_value
+                FROM {self.processed_opportunity_path}
+                WHERE tenant = '{self.tenant}'
+                GROUP BY sql_month, source_tier1, tenant;
+                """
+
+        cohort_summary_by_source_df = self.spark.sql(query)
+
+        # Validate schema
+        assertSchemaEqual(cohort_summary_by_source_df.schema, self.cohort_summary_by_source_schema)
+
+        # Calculate the expected total opportunity amount and total opportunity value
+        # For new_lead_value
+        new_lead_value = cohort_summary_by_source_df.select(
+            coalesce(sum("new_lead_value"), lit(0)).alias("new_lead_value")
+        ).collect()[0]["new_lead_value"]
+
+        # For renewal_lead_value
+        renewal_lead_value = cohort_summary_by_source_df.select(
+            coalesce(sum("renewal_lead_value"), lit(0)).alias("renewal_lead_value")
+        ).collect()[0]["renewal_lead_value"]
+
+        # For new_lead_value_won
+        new_lead_value_won = cohort_summary_by_source_df.select(
+            coalesce(sum("new_lead_value_won"), lit(0)).alias("new_lead_value_won")
+        ).collect()[0]["new_lead_value_won"]
+
+        # For renewal_lead_value_won
+        renewal_lead_value_won = cohort_summary_by_source_df.select(
+            coalesce(sum("renewal_lead_value_won"), lit(0)).alias("renewal_lead_value_won")
+        ).collect()[0]["renewal_lead_value_won"]
+
+        # For total_open_lead_value
+        total_open_lead_value = cohort_summary_by_source_df.select(
+            coalesce(sum("total_open_lead_value"), lit(0)).alias("total_open_lead_value")
+        ).collect()[0]["total_open_lead_value"]
+
+        lost_opportunity_value = cohort_summary_by_source_df.select(
+            coalesce(sum("lost_opportunity_value"), lit(0)).alias("lost_opportunity_value")
+        ).collect()[0]["lost_opportunity_value"]
+
+        expected_total_opportunity_amount1 = new_lead_value + renewal_lead_value
+        expected_total_opportunity_amount2 = new_lead_value_won + renewal_lead_value_won + total_open_lead_value + lost_opportunity_value
+
+        actual_opportunity_amount_df = self.spark.sql(f"""
+            SELECT CAST(SUM(amount) AS decimal(18,2)) AS total_opportunity
+            FROM {self.processed_opportunity_path}
+            WHERE tenant = '{self.tenant}'
+        """)
+        actual_opportunity_amount_sum = actual_opportunity_amount_df.select("total_opportunity").alias("total_opportunity").collect()[0]['total_opportunity']
+
+        tolerance = 0.01
+
+        assert math.fabs(actual_opportunity_amount_sum - expected_total_opportunity_amount1) <= tolerance, "Actual and expected opportunity amount 1 do not match within tolerance"
+        assert math.fabs(actual_opportunity_amount_sum - expected_total_opportunity_amount2) <= tolerance, "Actual and expected opportunity amount 2 do not match within tolerance"
+
+        return cohort_summary_by_source_df
+
+    def curated_days_to_close_analysis(self):
+        """
+        This Method functions to return a df that is days_to_close_analysis
+
+        """
+        query = f"""
+                WITH 
+                    -- Step 1: Group by sql_month and Calculate Metrics
+                    cohort_summary AS (
+                        SELECT
+                            tenant,
+                            last_day(sql_date) sql_month,
+                            CAST(COUNT(CASE WHEN new_or_existing = 'New' THEN 1 END) AS DECIMAL(18,2)) AS new_leads,
+                            CAST(COUNT(CASE WHEN new_or_existing = 'New' AND is_won = 'True' THEN 1 END) AS DECIMAL(18,2)) AS new_leads_won,
+                            CAST(COUNT(CASE WHEN new_or_existing = 'New' AND is_won = 'True' THEN 1 END) * 1.0 / COUNT(CASE WHEN new_or_existing = 'New' THEN 1 END) AS DECIMAL(18,2)) AS new_lead_conversion,
+                            CAST(COUNT(CASE WHEN is_closed = 'True' AND new_or_existing = 'New' AND is_won = 'True' AND days_to_close < 31 THEN 1 END) AS DECIMAL(18,2)) AS 30_day_close,
+                            CAST(COUNT(CASE WHEN is_closed = 'True' AND new_or_existing = 'New' AND days_to_close < 61 THEN 1 END) AS DECIMAL(18,2)) AS 60_day_close,
+                            CAST(COUNT(CASE WHEN is_closed = 'True' AND new_or_existing = 'New' AND days_to_close < 91 THEN 1 END) AS DECIMAL(18,2)) AS 90_day_close,
+                            CAST(COUNT(CASE WHEN is_closed = 'True' AND new_or_existing = 'New' AND days_to_close < 121 THEN 1 END) AS DECIMAL(18,2)) AS 120_day_close,
+                            CAST(COUNT(CASE WHEN is_closed = 'True' AND new_or_existing = 'New' AND is_won = 'True' AND days_to_close < 31 THEN 1 END) * 1.0 / COUNT(CASE WHEN new_or_existing = 'New' THEN 1 END) AS DECIMAL(18,2)) AS 30_day_close_pct,
+                            CAST(COUNT(CASE WHEN is_closed = 'True' AND new_or_existing = 'New' AND is_won = 'True' AND days_to_close < 61 THEN 1 END) * 1.0 / COUNT(CASE WHEN new_or_existing = 'New' THEN 1 END) AS DECIMAL(18,2)) AS 60_day_close_pct,
+                            CAST(COUNT(CASE WHEN is_closed = 'True' AND new_or_existing = 'New' AND is_won = 'True' AND days_to_close < 91 THEN 1 END) * 1.0 / COUNT(CASE WHEN new_or_existing = 'New' THEN 1 END) AS DECIMAL(18,2)) AS 90_day_close_pct,
+                            CAST(COUNT(CASE WHEN is_closed = 'True' AND new_or_existing = 'New' AND is_won = 'True' AND days_to_close < 121 THEN 1 END) * 1.0 / COUNT(CASE WHEN new_or_existing = 'New' THEN 1 END) AS DECIMAL(18,2)) AS 120_day_close_pct,
+                            CAST(COUNT(CASE WHEN is_closed = 'True' AND new_or_existing = 'New' THEN 1 END) * 1.0 / COUNT(CASE WHEN new_or_existing = 'New' THEN 1 END) AS DECIMAL(18,2)) AS open_pct,
+                            CAST(SUM(CASE WHEN new_or_existing = 'New' THEN amount END) AS DECIMAL(18,2)) AS new_lead_value,
+                            CAST(SUM(CASE WHEN new_or_existing = 'New' AND is_won = 'True' THEN amount END) AS DECIMAL(18,2)) AS new_lead_value_won,
+                            CAST(SUM(CASE WHEN new_or_existing = 'New' AND is_won = 'True' THEN amount END) * 1.0 / SUM(CASE WHEN new_or_existing = 'New' THEN amount END) AS DECIMAL(18,2)) AS new_lead_value_conversion,
+                            CAST(COUNT(CASE WHEN is_closed = 'False' THEN 1 END) AS DECIMAL(18,2)) AS total_open_leads,
+                            CAST(SUM(CASE WHEN is_closed = 'False' THEN amount END) AS DECIMAL(18,2)) AS total_open_lead_value
+                        FROM {self.processed_opportunity_path}
+                        WHERE tenant = '{self.tenant}'
+                        GROUP BY sql_month, tenant
+                    ),
+
+                    -- Step 2: Filter and Pivot the Data
+                    filtered_data AS (
+                        SELECT 
+                            last_day(sql_date) sql_month,
+                            CAST(COUNT(CASE WHEN new_or_existing = 'New' THEN 1 END) AS DECIMAL(18,2)) AS new_leads,
+                            CAST(COUNT(CASE WHEN new_or_existing = 'New' AND is_won = 'True' THEN 1 END) AS DECIMAL(18,2)) AS new_leads_won
+                        FROM {self.processed_opportunity_path}
+                        WHERE last_day(sql_date) > '2022-02-28'
+                        AND tenant = '{self.tenant}'
+                        GROUP BY last_day(sql_date)
+                    )
+
+                -- Final Query: Joining the Results
+                SELECT 
+                    cs.tenant,
+                    cs.sql_month,
+                    cs.new_leads,
+                    cs.new_leads_won,
+                    cs.new_lead_conversion,
+                    cs.30_day_close,
+                    cs.60_day_close,
+                    cs.90_day_close,
+                    cs.120_day_close,
+                    cs.30_day_close_pct,
+                    cs.60_day_close_pct,
+                    cs.90_day_close_pct,
+                    cs.120_day_close_pct,
+                    cs.open_pct,
+                    cs.new_lead_value,
+                    cs.new_lead_value_won,
+                    cs.new_lead_value_conversion,
+                    cs.total_open_leads,
+                    cs.total_open_lead_value
+                FROM cohort_summary cs
+                JOIN filtered_data fd ON cs.sql_month = fd.sql_month
+                ORDER BY cs.sql_month DESC;
+                """
+
+        days_to_close_analysis_df = self.spark.sql(query)
+        
+        assertSchemaEqual(days_to_close_analysis_df.schema, self.days_to_close_analysis_schema)
+
+        return days_to_close_analysis_df
+    
+    def curated_funnel_by_stage(self):
+        """
+        This Method functions to return a df that is funnel_by_stage
+        """
+
+        query = f"""
+                WITH stage_counts AS (
+                    SELECT
+                        a.tenant,
+                        b.stage_name,
+                        b.stage_order_number,
+                        COUNT(a.opportunity_id__sm) AS opp_count
+                    FROM {self.processed_opportunity_path} a
+                    JOIN {self.processed_dim_stages_path} b
+                    ON a.stage_name = b.stage_name AND a.tenant = b.tenant
+                    WHERE a.tenant = '{self.tenant}'
+                    GROUP BY b.stage_name, b.stage_order_number, a.tenant
+                )
+                SELECT
+                    tenant,
+                    stage_name,
+                    CAST(SUM(opp_count) OVER (ORDER BY stage_order_number ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS INTEGER) AS count
+                FROM stage_counts
+                ORDER BY stage_order_number;
+            """
+
+        funnel_by_stage_df = self.spark.sql(query)
+        
+        assertSchemaEqual(funnel_by_stage_df.schema, self.funnel_by_stage_schema)
+
+        return funnel_by_stage_df
