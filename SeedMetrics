@@ -1,4 +1,4 @@
-#Brian Reinke SeedMetrics Classes
+#SeedMetrics Classes
 class LandingToNormalizedPipedriveCRM:
 
     def __init_schema__(self):
