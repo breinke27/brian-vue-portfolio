@@ -1,4 +1,4 @@
-#Brian Reinke dataBase
+#dataBase
 if typing.TYPE_CHECKING:
     pass
 
