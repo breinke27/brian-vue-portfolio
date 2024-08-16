@@ -12,7 +12,7 @@ const route = useRoute();
     </span>
     <div class="flex items-center">
       <template v-if="route.path !== '/'">
-        <Button title="Home" link="/" />
+        <Button title="Home" link="/" class="font-bold" />
       </template>
       <template v-if="route.path === '/database_project' || route.path === '/seedmetrics_project' || route.path === '/vaulted_project'">
         <Button title="Back to Projects" link="/more_about_projects" class="font-bold mr-4 rounded-lg" />
