@@ -19,7 +19,7 @@ import banner from './Banner.vue';
           As a data engineer, I had the opportunity to build a principal data pipeline for CRM and billing data to bolster SeedMetrics' ELT processes. My job was to construct classes to extract, transform, and load the data. I also had the ability to create a workflow that runs the classes I built and pulls the data from end to end. This process consisted of moving the data through four different stages: landing, normalized, processed, and curated. Attached is a link to the code for these three classes and allows SeedMetrics to identify SaaS KPIs for each of their tenants! I also had the opportunity to build a machine learning model using Scikit Learn that predicts if a case would be won or lost, enhancing SeedMetric's ability to predict cases won for future clients.        </p>
         <a href="https://github.com/breinke27/brian-vue-portfolio/blob/main/SeedMetrics" 
            target="_blank" 
-           class="text-blue-500 py-2 px-4 rounded border border-transparent hover:border-red-500 hover:text-red-500">
+           class="text-blue-500 py-2 px-4 rounded-lg border border-transparent hover:border-red-500 hover:text-red-500">
            View Code on GitHub
         </a>
       </div>

@@ -21,7 +21,7 @@ import banner from './Banner.vue';
         <a 
           href="https://github.com/breinke27/brian-vue-portfolio/blob/main/Vaulted Baseball" 
           target="_blank" 
-          class="text-blue-500 py-2 px-4 rounded border border-transparent hover:border-red-500 hover:text-red-500">
+          class="text-blue-500 py-2 px-4 rounded-lg border border-transparent hover:border-red-500 hover:text-red-500">
           View Code on GitHub
         </a>
       </div>
