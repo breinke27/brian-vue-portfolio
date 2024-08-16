@@ -14,11 +14,11 @@ const route = useRoute();
       <template v-if="route.path !== '/'">
         <Button title="Home" link="/" />
       </template>
-      <template v-if="route.path === '/db_project' || route.path === '/sm_project' || route.path === '/vault_project'">
-        <Button title="Back to Projects" link="/page2" class="font-bold mr-4 rounded-lg" />
+      <template v-if="route.path === '/database_project' || route.path === '/seedmetrics_project' || route.path === '/vaulted_project'">
+        <Button title="Back to Projects" link="/more_about_projects" class="font-bold mr-4 rounded-lg" />
       </template>
-      <template v-else-if="route.path !== '/page2'">
-        <Button title="Read More About My Projects" link="/page2" class="font-bold mr-4 rounded-lg"/>
+      <template v-else-if="route.path !== '/more_about_projects'">
+        <Button title="Read More About My Projects" link="/more_about_projects" class="font-bold mr-4 rounded-lg"/>
       </template>
       <Button title="LinkedIn" link="https://www.linkedin.com/in/brianreinke21" target="_blank" class="font-bold mr-4 rounded-lg" />
     </div>
