@@ -7,7 +7,7 @@ const route = useRoute();
 
 <template>
   <div class="bg-gray-800 text-white py-4 w-full fixed top-0 left-0 flex justify-between items-center">
-    <span class="font-bold text-xl ml-4 border border-white rounded-lg px-2 py-1">
+    <span class="font-bold text-xl ml-4 border border-white rounded-lg px-2 py-3">
       Brian Reinke's Portfolio
     </span>
     <div class="flex items-center">
